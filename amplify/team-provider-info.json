@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-spiritbytes-dev-f4433-authRole",
+      "UnauthRoleArn": "arn:aws:iam::194615949662:role/amplify-spiritbytes-dev-f4433-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::194615949662:role/amplify-spiritbytes-dev-f4433-authRole",
+      "Region": "us-east-2",
+      "DeploymentBucketName": "amplify-spiritbytes-dev-f4433-deployment",
+      "UnauthRoleName": "amplify-spiritbytes-dev-f4433-unauthRole",
+      "StackName": "amplify-spiritbytes-dev-f4433",
+      "StackId": "arn:aws:cloudformation:us-east-2:194615949662:stack/amplify-spiritbytes-dev-f4433/d6b1a420-0bce-11f0-bcd8-0663989600f5",
+      "AmplifyAppId": "d151v7ps5hktcz"
+    },
+    "categories": {
+      "auth": {
+        "spiritbytes4d1822d8": {}
+      }
+    }
+  }
+}

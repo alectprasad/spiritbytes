@@ -59,7 +59,7 @@ export default function SplashScreen() {
           marginBottom: 60,
         }}>
           <TouchableOpacity
-            onPress={() => router.push('/login')}
+            onPress={() => router.push("/auth/login")}
             style={{
               backgroundColor: COLORS.forestGreen,
               paddingVertical: 15,

@@ -25,16 +25,11 @@ export default function VerifyScreen() {
         confirmationCode
       });
       
-      Alert.alert(
-        "Success", 
-        "Your account has been verified. You can now log in.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/auth/login")
-          }
-        ]
-      );
+      // Navigate to food preferences screen
+      router.push({
+        pathname: "/auth/food-preferences",
+        params: { email }
+      });
     } catch (error: any) {
       console.log("Verification error", error);
       Alert.alert("Error", error.message || "Failed to verify account");
@@ -120,7 +115,7 @@ export default function VerifyScreen() {
                 onPress={() => router.back()}
                 className="mt-8 items-center"
               >
-                <Text className="text-gray-600">Back to login</Text>
+                <Text className="text-gray-600">Back</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

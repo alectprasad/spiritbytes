@@ -20,19 +20,30 @@
     "passwordPolicyMinLength": 8,
     "passwordPolicyCharacters": [],
     "requiredAttributes": [
-      "email"
+      "email",
+      "name"
     ],
     "aliasAttributes": [],
     "userpoolClientGenerateSecret": false,
     "userpoolClientRefreshTokenValidity": 30,
     "userpoolClientWriteAttributes": [
-      "email"
+      "email",
+      "name",
+      "custom:age",
+      "custom:gender",
+      "custom:diet",
+      "custom:allergens"
     ],
     "userpoolClientReadAttributes": [
-      "email"
+      "email",
+      "name",
+      "custom:age",
+      "custom:gender",
+      "custom:diet",
+      "custom:allergens"
     ],
     "userpoolClientLambdaRole": "spirit4d1822d8_userpoolclient_lambda_role",
-    "userpoolClientSetAttributes": false,
+    "userpoolClientSetAttributes": true,
     "sharedId": "4d1822d8",
     "resourceName": "spiritbytes4d1822d8",
     "authSelections": "identityPoolAndUserPool",

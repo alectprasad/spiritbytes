@@ -80,7 +80,8 @@ export default function LoginScreen() {
               <Text className="text-gray-600 ml-4 mb-1">Email Address</Text>
               <TextInput
                 className="w-full h-14 px-4 border border-gray-300 rounded-full text-lg"
-                placeholder="example@email.com"
+                placeholder=""
+                placeholderTextColor="#666666"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -92,7 +93,8 @@ export default function LoginScreen() {
               <Text className="text-gray-600 ml-4 mb-1">Password</Text>
               <TextInput
                 className="w-full h-14 px-4 border border-gray-300 rounded-full text-lg"
-                placeholder="Enter your password"
+                placeholder=""
+                placeholderTextColor="#666666"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}

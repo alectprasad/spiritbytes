@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { signIn } from "aws-amplify/auth";
+import { signIn, fetchAuthSession } from "aws-amplify/auth";
 import { COLORS, SHADOWS } from "@/app/constants/theme";
 
 export default function LoginScreen() {
@@ -10,6 +10,30 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check if user is already authenticated on component mount
+  useEffect(() => {
+    checkAuthState();
+  }, []);
+
+  const checkAuthState = async () => {
+    setIsCheckingAuth(true);
+    try {
+      const session = await fetchAuthSession();
+      if (session.tokens) {
+        // User is already authenticated, redirect to home
+        router.replace("/app/home");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      // No active session
+      return false;
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -19,6 +43,11 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      // Check if user is already signed in
+      const isAuthenticated = await checkAuthState();
+      if (isAuthenticated) return;
+
+      // Proceed with sign in if not authenticated
       const signInResponse = await signIn({
         username: email,
         password: password,
@@ -35,11 +64,17 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       console.log("Sign in error", error);
+      console.log("Error name:", error.name);
+      console.log("Error message:", error.message);
+      
       if (error.name === "UserNotConfirmedException") {
         router.push({
           pathname: "/auth/verify",
           params: { email }
         });
+      } else if (error.name === "UserAlreadyAuthenticatedException") {
+        // User is already signed in, redirect to home
+        router.replace("/app/home");
       } else {
         Alert.alert("Error", error.message || "Failed to sign in");
       }
@@ -51,6 +86,15 @@ export default function LoginScreen() {
   const handleSignUp = async () => {
     router.push("/auth/signup");
   };
+
+  if (isCheckingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <ActivityIndicator size="large" color={COLORS.forestGreen} />
+        <Text style={{ marginTop: 20, fontSize: 16, color: COLORS.darkGray }}>Checking login status...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>

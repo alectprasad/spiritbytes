@@ -1,19 +1,44 @@
-import React from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, Image, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
+import { fetchAuthSession } from "aws-amplify/auth";
 import { COLORS, FONTS } from "@/app/constants/theme";
 
 export default function SplashScreen() {
   const router = useRouter();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [fontsLoaded] = useFonts({
     'Serif': require('@/assets/fonts/PlayfairDisplay-Regular.ttf'),
   });
 
-  if (!fontsLoaded) {
-    return null;
+  useEffect(() => {
+    checkAuthState();
+  }, []);
+
+  const checkAuthState = async () => {
+    try {
+      const session = await fetchAuthSession();
+      if (session.tokens) {
+        // User is already authenticated, redirect to home
+        router.replace("/app/home");
+      }
+    } catch (error) {
+      // No active session, stay on splash screen
+      console.log("No active session:", error);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  if (!fontsLoaded || isCheckingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={COLORS.forestGreen} />
+      </View>
+    );
   }
 
   return (

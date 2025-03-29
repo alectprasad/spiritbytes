@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, 
-  KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, 
+  KeyboardAvoidingView, Platform, ScrollView, SafeAreaView, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from 'expo-image-picker';
 import { signUp } from "aws-amplify/auth";
+import { Ionicons } from "@expo/vector-icons";
 import { COLORS, SHADOWS } from "@/app/constants/theme";
 
 export default function SignUpScreen() {
@@ -18,7 +19,7 @@ export default function SignUpScreen() {
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
-  const [photo, setPhoto] = useState(null);
+  const [photo, setPhoto] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(false);
 
@@ -110,10 +111,11 @@ export default function SignUpScreen() {
         >
           <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20 }}>
             <View className="items-center mb-6 mt-4">
-              <Image 
-                source={require("@/assets/images/logo.png")}
-                className="w-20 h-20"
-                resizeMode="contain"
+              <Ionicons
+                name="leaf"
+                size={48}
+                color={COLORS.forestGreen}
+                style={{ marginBottom: 6 }}
               />
               <Text className="text-3xl font-serif text-center">
                 SpiritBytes
@@ -138,12 +140,12 @@ export default function SignUpScreen() {
                     />
                   ) : (
                     <View className="items-center justify-center">
-                      <Text className="text-5xl text-gray-400">👤</Text>
+                      <Ionicons name="person" size={60} color="#a3a3a3" />
                     </View>
                   )}
                 </View>
                 <View className="absolute bottom-0 right-0 bg-gray-800 rounded-full p-2">
-                  <Text className="text-xl">📷</Text>
+                  <Ionicons name="camera" size={24} color="white" />
                 </View>
               </TouchableOpacity>
             </View>
@@ -153,8 +155,8 @@ export default function SignUpScreen() {
               <Text className="text-gray-600 ml-4 mb-1">Name</Text>
               <TextInput
                 className="w-full h-14 px-4 border border-gray-300 rounded-full text-lg" 
+                placeholder=""
                 placeholderTextColor="#666666"
-                placeholder="" placeholderTextColor="#666666"
                 value={name}
                 onChangeText={setName}
               />
@@ -166,7 +168,8 @@ export default function SignUpScreen() {
                 <Text className="text-gray-600 ml-4 mb-1">Age</Text>
                 <TextInput
                   className="w-full h-14 px-4 border border-gray-300 rounded-full text-lg"
-                  placeholder="" placeholderTextColor="#666666"
+                  placeholder=""
+                  placeholderTextColor="#666666"
                   keyboardType="number-pad"
                   value={age}
                   onChangeText={setAge}
@@ -236,7 +239,7 @@ export default function SignUpScreen() {
               ) : (
                 <View className="flex-row items-center">
                   <Text className="text-white text-lg mr-2">Continue</Text>
-                  <Text className="text-white text-2xl">→</Text>
+                  <Ionicons name="arrow-forward" size={22} color="white" />
                 </View>
               )}
             </TouchableOpacity>

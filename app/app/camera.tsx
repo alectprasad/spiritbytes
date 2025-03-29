@@ -1,8 +1,12 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useState, useRef } from 'react';
 import { Button, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/app/constants/theme";
 
 export default function App() {
+  const router = useRouter();
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
@@ -29,14 +33,22 @@ export default function App() {
   async function takePicture() {
     if (cameraRef.current) {
       try {
-        const photo = await cameraRef.current.takePicture();
+        // Using takePictureAsync which is the correct method
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+          skipProcessing: false,
+        });
+        
         Alert.alert('Success', 'Photo captured!');
         console.log(photo);
         // Here you can handle the captured photo
         // e.g., save to gallery, upload to server, etc.
       } catch (error) {
         console.error('Failed to take picture:', error);
+        Alert.alert('Error', 'Failed to take picture');
       }
+    } else {
+      Alert.alert('Error', 'Camera reference not available');
     }
   }
 
@@ -47,6 +59,14 @@ export default function App() {
         facing={facing}
         ref={cameraRef}
       >
+        {/* Back button - added at the top left */}
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+
         <View style={styles.controlsContainer}>
           {/* Bottom row with both capture and flip buttons */}
           <View style={styles.bottomControls}>
@@ -118,5 +138,18 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: 'white',
+  },
+  // Back button styling
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
 });

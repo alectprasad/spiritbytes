@@ -71,9 +71,11 @@ export default function HomeScreen() {
 
   const handleNextPress = () => {
     if (selectedMood) {
-      // This would navigate to the recipe recommendation screen based on mood
-      console.log(`Next button pressed with mood: ${selectedMood}`);
-      // Example: router.push({ pathname: "/app/recipes", params: { mood: selectedMood } });
+      // Navigate to the analysis screen with the selected mood
+      router.push({
+        pathname: "/app/analysis",
+        params: { mood: selectedMood }
+      });
     }
   };
 

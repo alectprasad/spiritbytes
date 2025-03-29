@@ -1,0 +1,13 @@
+{
+  "resourceName": "photos",
+  "policyUUID": "4bfb8028",
+  "bucketName": "spiritbytes-photos",
+  "storageAccess": "auth",
+  "guestAccess": [],
+  "authAccess": [
+    "CREATE_AND_UPDATE",
+    "READ"
+  ],
+  "triggerFunction": "NONE",
+  "groupAccess": {}
+}

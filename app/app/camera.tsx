@@ -1,9 +1,10 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, StyleSheet, Text, TouchableOpacity, View, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/app/constants/theme";
+// Import the default export correctly
 import { EmotionService } from '@/app/services/EmotionService';
 
 export default function CameraScreen() {
@@ -13,13 +14,22 @@ export default function CameraScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const cameraRef = useRef<any>(null);
 
+  // Add useEffect to log messages when component mounts
+  useEffect(() => {
+    console.log('Camera component mounted');
+    // Verify that EmotionService is imported correctly
+    console.log('EmotionService imported:', EmotionService ? 'Yes' : 'No');
+  }, []);
+
   if (!permission) {
     // Camera permissions are still loading.
+    console.log('Camera permissions loading...');
     return <View />;
   }
 
   if (!permission.granted) {
     // Camera permissions are not granted yet.
+    console.log('Camera permissions not granted');
     return (
       <View style={styles.container}>
         <Text style={styles.message}>We need your permission to show the camera</Text>
@@ -30,12 +40,14 @@ export default function CameraScreen() {
 
   function toggleCameraFacing() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
+    console.log('Camera facing toggled to:', facing === 'back' ? 'front' : 'back');
   }
 
   async function takePicture() {
     if (cameraRef.current) {
       try {
         setIsProcessing(true); // Start loading state
+        console.log('Taking picture...');
         
         // Take the picture
         const photo = await cameraRef.current.takePictureAsync({
@@ -44,13 +56,26 @@ export default function CameraScreen() {
           format: 'jpeg',
         });
         
+        console.log(`Picture taken: ${photo.uri}`);
+        console.log(`Picture width: ${photo.width}, height: ${photo.height}`);
+        
         try {
+          // Double-check the EmotionService is defined
+          console.log('Checking EmotionService before analysis:', EmotionService ? 'Defined' : 'Undefined');
+          
           // Upload and analyze the photo
+          console.log('Starting emotion analysis...');
           const emotionResult = await EmotionService.analyzeEmotion(photo.uri);
           
-          if (emotionResult.success && emotionResult.emotions.length > 0) {
+          console.log('Emotion analysis result:', JSON.stringify(emotionResult));
+          
+          if (emotionResult.success && emotionResult.emotions && emotionResult.emotions.length > 0) {
             const primaryEmotion = emotionResult.emotions[0].type;
+            const confidence = emotionResult.emotions[0].confidence;
             const detectedMood = EmotionService.mapEmotionToMood(primaryEmotion);
+            
+            console.log(`Detected primary emotion: ${primaryEmotion} with confidence: ${confidence}`);
+            console.log(`Mapped mood: ${detectedMood}`);
             
             // Navigate to analysis screen with detected mood
             router.push({
@@ -59,40 +84,50 @@ export default function CameraScreen() {
                 mood: detectedMood,
                 imageUri: photo.uri,
                 rawEmotion: primaryEmotion,
-                confidence: emotionResult.emotions[0].confidence.toFixed(2)
+                confidence: confidence.toFixed(2)
               }
             });
           } else {
+            console.log('No emotions detected or emotions array empty');
             Alert.alert(
               "No Emotions Detected", 
               "We couldn't detect any emotions. Please try again with a clearer photo of your face.",
               [
                 { 
                   text: "OK", 
-                  onPress: () => setIsProcessing(false) 
+                  onPress: () => {
+                    console.log('Alert dismissed');
+                    setIsProcessing(false);
+                  }
                 }
               ]
             );
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error analyzing emotions:", error);
+          
+          // Show detailed error to help with debugging
           Alert.alert(
             "Analysis Failed", 
-            "There was a problem analyzing your emotions. Please try again.",
+            `There was a problem analyzing your emotions: ${error.message || 'Unknown error'}`,
             [
               { 
                 text: "OK", 
-                onPress: () => setIsProcessing(false) 
+                onPress: () => {
+                  console.log('Error alert dismissed');
+                  setIsProcessing(false);
+                }
               }
             ]
           );
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to take picture:', error);
         Alert.alert('Error', 'Failed to take picture');
         setIsProcessing(false);
       }
     } else {
+      console.error('Camera reference not available');
       Alert.alert('Error', 'Camera reference not available');
     }
   }

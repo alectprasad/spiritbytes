@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "paths": {
+    "/analyze": {
+      "name": "/analyze",
+      "lambdaFunction": "emotionAnalysisFunction",
+      "permissions": {
+        "setting": "open"
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, SafeAreaView, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, SafeAreaView, StyleSheet, TouchableOpacity, Image, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,14 +9,18 @@ import { COLORS, SHADOWS } from "@/app/constants/theme";
 
 export default function AnalysisScreen() {
   const router = useRouter();
-  const { mood } = useLocalSearchParams();
+  const { mood, imageUri, rawEmotion, confidence } = useLocalSearchParams();
   const [recommendations, setRecommendations] = useState<string[]>([]);
+  
+  // Convert the mood to string and make first letter uppercase, rest lowercase
+  const formattedMood = typeof mood === 'string' 
+    ? mood.charAt(0).toUpperCase() + mood.slice(1).toLowerCase() 
+    : 'Neutral';
 
   useEffect(() => {
-    // In a real app, this would fetch recommendations based on mood from an API
-    // For demo purposes, we'll use hardcoded recommendations
-    generateRecommendations(mood as string);
-  }, [mood]);
+    // Generate recommendations based on mood
+    generateRecommendations(formattedMood);
+  }, [formattedMood]);
 
   const generateRecommendations = (currentMood: string) => {
     // Sample recommendations based on mood
@@ -50,6 +54,11 @@ export default function AnalysisScreen() {
         "Grounding root vegetable soup",
         "Warming cinnamon-spiced oatmeal",
         "Soothing peppermint tea with honey"
+      ],
+      "Sad": [
+        "Mood-boosting omega-3 rich salmon",
+        "Comforting vegetable soup with turmeric",
+        "Dark chocolate with nuts and dried fruits"
       ]
     };
 
@@ -60,7 +69,7 @@ export default function AnalysisScreen() {
       "Nourishing bowl of seasonal fruits"
     ];
 
-    setRecommendations(moodRecommendations[currentMood as string] || defaultRecs);
+    setRecommendations(moodRecommendations[currentMood] || defaultRecs);
   };
 
   const getMoodColor = (currentMood: string): string[] => {
@@ -71,56 +80,77 @@ export default function AnalysisScreen() {
       "Tired": [COLORS.earthBrown, COLORS.terracotta],
       "Stressed": [COLORS.forestGreen, COLORS.earthBrown],
       "Anxious": [COLORS.terracotta, COLORS.earthBrown],
+      "Sad": [COLORS.sageMoss, COLORS.forestGreen],
     };
 
-    return moodColors[currentMood as string] || COLORS.splashGradient;
+    return moodColors[currentMood] || COLORS.splashGradient;
   };
 
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
       <LinearGradient
-        colors={getMoodColor(mood as string)}
+        colors={getMoodColor(formattedMood)}
         style={{ flex: 1 }}
       >
         <SafeAreaView style={{ flex: 1 }}>
-          <View style={styles.container}>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color="white" />
-              </TouchableOpacity>
-              <Text style={styles.title}>Mood Analysis</Text>
-              <View style={{ width: 24 }} />
-            </View>
-
-            <View style={styles.moodCard}>
-              <Text style={styles.moodLabel}>Your Current Mood</Text>
-              <Text style={styles.moodValue}>{mood}</Text>
-              
-              <View style={styles.divider} />
-              
-              <Text style={styles.recommendationsTitle}>Recommended Foods</Text>
-              <View style={styles.recommendationsList}>
-                {recommendations.map((item, index) => (
-                  <View key={index} style={styles.recommendationItem}>
-                    <Ionicons name="leaf" size={16} color={COLORS.forestGreen} />
-                    <Text style={styles.recommendationText}>{item}</Text>
-                  </View>
-                ))}
+          <ScrollView style={styles.scrollContainer}>
+            <View style={styles.container}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                  <Ionicons name="arrow-back" size={24} color="white" />
+                </TouchableOpacity>
+                <Text style={styles.title}>Emotion Analysis</Text>
+                <View style={{ width: 24 }} />
               </View>
-              
-              <TouchableOpacity 
-                style={styles.recipeButton}
-                onPress={() => {
-                  // In a real app, this would navigate to recipe details
-                  console.log("Navigate to recipes for", mood);
-                }}
-              >
-                <Text style={styles.recipeButtonText}>See Detailed Recipes</Text>
-                <Ionicons name="arrow-forward" size={18} color="white" />
-              </TouchableOpacity>
+
+              {imageUri && (
+                <View style={styles.imageContainer}>
+                  <Image 
+                    source={{ uri: imageUri as string }} 
+                    style={styles.capturedImage} 
+                  />
+                </View>
+              )}
+
+              <View style={styles.moodCard}>
+                <Text style={styles.moodLabel}>Your Current Mood</Text>
+                <Text style={styles.moodValue}>{formattedMood}</Text>
+                
+                {rawEmotion && (
+                  <View style={styles.emotionDetails}>
+                    <Text style={styles.emotionText}>
+                      Detected emotion: {rawEmotion} 
+                      {confidence && ` (${confidence}% confidence)`}
+                    </Text>
+                  </View>
+                )}
+                
+                <View style={styles.divider} />
+                
+                <Text style={styles.recommendationsTitle}>Recommended Foods</Text>
+                <View style={styles.recommendationsList}>
+                  {recommendations.map((item, index) => (
+                    <View key={index} style={styles.recommendationItem}>
+                      <Ionicons name="leaf" size={16} color={COLORS.forestGreen} />
+                      <Text style={styles.recommendationText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+                
+                <TouchableOpacity 
+                  style={styles.recipeButton}
+                  onPress={() => {
+                    // In a real app, this would navigate to recipe details
+                    console.log("Navigate to recipes for", formattedMood);
+                  }}
+                >
+                  <Text style={styles.recipeButtonText}>See Detailed Recipes</Text>
+                  <Ionicons name="arrow-forward" size={18} color="white" />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </SafeAreaView>
       </LinearGradient>
       <Navbar />
@@ -129,17 +159,20 @@ export default function AnalysisScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     paddingTop: 40,
     paddingBottom: 20,
-    paddingHorizontal: 30, // Add horizontal padding here
+    paddingHorizontal: 30,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   backButton: {
     width: 40,
@@ -154,6 +187,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Serif',
     color: 'white',
     fontWeight: '500',
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  capturedImage: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    borderWidth: 4,
+    borderColor: 'white',
+    ...SHADOWS.medium,
   },
   moodCard: {
     backgroundColor: 'white',
@@ -170,7 +215,17 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontFamily: 'Serif',
     color: COLORS.forestGreen,
-    marginBottom: 20,
+    marginBottom: 10,
+  },
+  emotionDetails: {
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: 'rgba(56, 82, 61, 0.1)',
+    borderRadius: 10,
+  },
+  emotionText: {
+    fontSize: 14,
+    color: COLORS.darkGray,
   },
   divider: {
     height: 1,

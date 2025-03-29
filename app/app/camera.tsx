@@ -1,14 +1,16 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useState, useRef } from 'react';
-import { Button, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { Button, StyleSheet, Text, TouchableOpacity, View, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/app/constants/theme";
+import { EmotionService } from '@/app/services/EmotionService';
 
-export default function App() {
+export default function CameraScreen() {
   const router = useRouter();
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [facing, setFacing] = useState<CameraType>('front'); // Default to front camera for emotions
   const [permission, requestPermission] = useCameraPermissions();
+  const [isProcessing, setIsProcessing] = useState(false);
   const cameraRef = useRef<any>(null);
 
   if (!permission) {
@@ -33,19 +35,62 @@ export default function App() {
   async function takePicture() {
     if (cameraRef.current) {
       try {
-        // Using takePictureAsync which is the correct method
+        setIsProcessing(true); // Start loading state
+        
+        // Take the picture
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
           skipProcessing: false,
+          format: 'jpeg',
         });
         
-        Alert.alert('Success', 'Photo captured!');
-        console.log(photo);
-        // Here you can handle the captured photo
-        // e.g., save to gallery, upload to server, etc.
+        try {
+          // Upload and analyze the photo
+          const emotionResult = await EmotionService.analyzeEmotion(photo.uri);
+          
+          if (emotionResult.success && emotionResult.emotions.length > 0) {
+            const primaryEmotion = emotionResult.emotions[0].type;
+            const detectedMood = EmotionService.mapEmotionToMood(primaryEmotion);
+            
+            // Navigate to analysis screen with detected mood
+            router.push({
+              pathname: "/app/analysis",
+              params: { 
+                mood: detectedMood,
+                imageUri: photo.uri,
+                rawEmotion: primaryEmotion,
+                confidence: emotionResult.emotions[0].confidence.toFixed(2)
+              }
+            });
+          } else {
+            Alert.alert(
+              "No Emotions Detected", 
+              "We couldn't detect any emotions. Please try again with a clearer photo of your face.",
+              [
+                { 
+                  text: "OK", 
+                  onPress: () => setIsProcessing(false) 
+                }
+              ]
+            );
+          }
+        } catch (error) {
+          console.error("Error analyzing emotions:", error);
+          Alert.alert(
+            "Analysis Failed", 
+            "There was a problem analyzing your emotions. Please try again.",
+            [
+              { 
+                text: "OK", 
+                onPress: () => setIsProcessing(false) 
+              }
+            ]
+          );
+        }
       } catch (error) {
         console.error('Failed to take picture:', error);
         Alert.alert('Error', 'Failed to take picture');
+        setIsProcessing(false);
       }
     } else {
       Alert.alert('Error', 'Camera reference not available');
@@ -63,18 +108,34 @@ export default function App() {
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => router.back()}
+          disabled={isProcessing}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
 
         <View style={styles.controlsContainer}>
+          {isProcessing && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={COLORS.white} />
+              <Text style={styles.loadingText}>Analyzing emotions...</Text>
+            </View>
+          )}
+          
           {/* Bottom row with both capture and flip buttons */}
           <View style={styles.bottomControls}>
-            <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
+            <TouchableOpacity 
+              style={styles.flipButton} 
+              onPress={toggleCameraFacing}
+              disabled={isProcessing}
+            >
               <Text style={styles.flipText}>Flip</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <TouchableOpacity 
+              style={[styles.captureButton, isProcessing && styles.disabledButton]} 
+              onPress={takePicture}
+              disabled={isProcessing}
+            >
               <View style={styles.captureButtonInner} />
             </TouchableOpacity>
             
@@ -151,5 +212,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+  },
+  // Loading overlay
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 18,
+    marginTop: 10,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });

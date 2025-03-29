@@ -14,6 +14,9 @@
     "categories": {
       "auth": {
         "spiritbytes4d1822d8": {}
+      },
+      "function": {
+        "emotionAnalysisFunction": {}
       }
     }
   }

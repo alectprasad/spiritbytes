@@ -7,9 +7,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS, SHADOWS } from "@/app/constants/theme";
 import Navbar from "@/app/components/Navbar";
 
+// Constants
+const ITEM_HEIGHT = 60;
+const DEFAULT_MOOD = "Playful";
+
 export default function HomeScreen() {
   const router = useRouter();
-  const [selectedMood, setSelectedMood] = useState<string | null>("Playful");
+  const [selectedMood, setSelectedMood] = useState<string | null>(DEFAULT_MOOD);
   const [centerItemIndex, setCenterItemIndex] = useState<number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -21,14 +25,17 @@ export default function HomeScreen() {
 
   // Initialize with the default selected mood
   useEffect(() => {
-    const defaultIndex = moods.indexOf("Playful");
+    const defaultIndex = moods.indexOf(DEFAULT_MOOD);
     if (defaultIndex >= 0) {
       setCenterItemIndex(defaultIndex);
 
       // Scroll to the default item after a short delay
       setTimeout(() => {
         if (scrollViewRef.current) {
-          scrollViewRef.current.scrollTo({ y: defaultIndex * 60, animated: true });
+          scrollViewRef.current.scrollTo({ 
+            y: defaultIndex * ITEM_HEIGHT, 
+            animated: true 
+          });
         }
       }, 500);
     }
@@ -36,10 +43,7 @@ export default function HomeScreen() {
 
   const handleScroll = (event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
-    const itemHeight = 60; // Height of each item
-    
-    // Calculate which item is centered in the white bar
-    const index = Math.round(offsetY / itemHeight);
+    const index = Math.round(offsetY / ITEM_HEIGHT);
     
     if (index >= 0 && index < moods.length) {
       setCenterItemIndex(index);
@@ -53,14 +57,16 @@ export default function HomeScreen() {
     
     // Scroll to center the selected mood
     if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ y: index * 60, animated: true });
+      scrollViewRef.current.scrollTo({ 
+        y: index * ITEM_HEIGHT, 
+        animated: true 
+      });
     }
   };
 
   const handleCameraPress = () => {
-    // In a real implementation, this would navigate to the camera screen
-    console.log("Camera button pressed");
-    // Example: router.push("/app/camera");
+    // Navigate to the camera screen
+    router.push("/app/camera");
   };
 
   const handleNextPress = () => {
@@ -120,10 +126,10 @@ export default function HomeScreen() {
                   top: '50%', 
                   left: 0, 
                   right: 0, 
-                  height: 60, // Slightly increased height
+                  height: ITEM_HEIGHT, 
                   backgroundColor: 'white', 
                   borderRadius: 30,
-                  transform: [{ translateY: -30 }], // Adjusted to center properly
+                  transform: [{ translateY: -ITEM_HEIGHT/2 }],
                   zIndex: 1,
                   ...SHADOWS.small
                 }} />
@@ -132,12 +138,14 @@ export default function HomeScreen() {
                   ref={scrollViewRef}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ 
-                    paddingVertical: 150, // Increased padding to allow proper alignment
+                    paddingTop: 150 - ITEM_HEIGHT/2,
+                    paddingBottom: 150 - ITEM_HEIGHT/2,
                   }}
-                  snapToInterval={60} // Increased to match item total height
+                  snapToInterval={ITEM_HEIGHT}
                   decelerationRate="fast"
                   onMomentumScrollEnd={handleScroll}
                   scrollEventThrottle={16}
+                  style={{ zIndex: 2 }}
                 >
                   {moods.map((mood, index) => (
                     <TouchableOpacity
@@ -145,12 +153,9 @@ export default function HomeScreen() {
                       onPress={() => handleMoodPress(mood, index)}
                       style={{
                         backgroundColor: 'transparent',
-                        padding: 18, // Slightly increased padding
-                        borderRadius: 30,
-                        marginVertical: 0, // Removed vertical margin
+                        height: ITEM_HEIGHT,
+                        justifyContent: 'center',
                         alignItems: 'center',
-                        height: 60, // Slightly increased height
-                        justifyContent: 'center', // Ensure text is centered
                         zIndex: 2,
                       }}
                     >

@@ -7,13 +7,16 @@ import {
   TouchableOpacity, 
   ScrollView, 
   Dimensions, 
-  FlatList 
+  FlatList,
+  ActivityIndicator 
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import Navbar from "@/app/components/Navbar";
 import { COLORS, SHADOWS } from "@/app/constants/theme";
+// Import OpenAI service for recipe generation
+import { OpenAIService, Recipe } from "@/app/services/OpenAIService";
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
@@ -24,6 +27,9 @@ export default function RecipeListScreen() {
   const flatListRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pageTitle, setPageTitle] = useState("I found these for you...");
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Set page title based on source and mood
   useEffect(() => {
@@ -34,161 +40,29 @@ export default function RecipeListScreen() {
     }
   }, [mood, source]);
 
-  // Sample recipe data based on moods
-  const moodRecipes = {
-    "Calm": [
-      {
-        id: '1',
-        title: 'Banana & Peanut Butter Toast',
-        description: 'You\'ll want something easy, comforting and soothing',
-        color: COLORS.sandBeige,
-        ingredients: [
-          {
-            name: 'Bananas',
-            benefits: 'Rich in magnesium and potassium, which help relax muscles'
-          },
-          {
-            name: 'Whole Grain Bread',
-            benefits: 'Complex carbs promote serotonin production'
-          },
-          {
-            name: 'Peanut Butter',
-            benefits: 'Contains tryptophan which helps produce melatonin'
-          }
-        ]
-      },
-      {
-        id: '2',
-        title: 'Turmeric Golden Milk',
-        description: 'A warm drink to help you unwind and relax',
-        color: COLORS.terracotta,
-        ingredients: [
-          {
-            name: 'Turmeric',
-            benefits: 'Anti-inflammatory properties that help reduce stress'
-          },
-          {
-            name: 'Warm Milk',
-            benefits: 'Contains tryptophan which promotes better sleep'
-          },
-          {
-            name: 'Honey',
-            benefits: 'Natural sweetener that helps soothe the mind'
-          }
-        ]
-      },
-      {
-        id: '3',
-        title: 'Avocado Cucumber Toast',
-        description: 'Light and refreshing for a calming effect',
-        color: COLORS.oliveGreen,
-        ingredients: [
-          {
-            name: 'Avocado',
-            benefits: 'Rich in B vitamins that help reduce anxiety'
-          },
-          {
-            name: 'Cucumber',
-            benefits: 'Hydrating and contains antioxidants'
-          },
-          {
-            name: 'Whole Grain Bread',
-            benefits: 'Provides sustained energy and mood stability'
-          }
-        ]
+  // Fetch recipes on component mount
+  useEffect(() => {
+    fetchRecipes();
+  }, [mood]);
+
+  const fetchRecipes = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Use OpenAI to generate recipes based on mood
+      const recipeData = await OpenAIService.generateRecipes(mood as string, 3);
+      
+      if (!recipeData || recipeData.length === 0) {
+        setError('Failed to generate recipes. Please try again.');
+      } else {
+        setRecipes(recipeData);
       }
-    ],
-    "Happy": [
-      {
-        id: '4',
-        title: 'Berry Smoothie Bowl',
-        description: 'Maintain your positive mood with these uplifting foods',
-        color: COLORS.terracotta,
-        ingredients: [
-          {
-            name: 'Berries',
-            benefits: 'Rich in antioxidants that support brain health'
-          },
-          {
-            name: 'Greek Yogurt',
-            benefits: 'Probiotics can enhance mood and cognitive function'
-          },
-          {
-            name: 'Honey',
-            benefits: 'Natural sweetener that helps maintain energy levels'
-          }
-        ]
-      },
-      {
-        id: '5',
-        title: 'Citrus Quinoa Salad',
-        description: 'Fresh and energizing to complement your mood',
-        color: COLORS.sageMoss,
-        ingredients: [
-          {
-            name: 'Quinoa',
-            benefits: 'Complete protein that helps maintain stable energy'
-          },
-          {
-            name: 'Citrus Fruits',
-            benefits: 'Vitamin C boosts immune system and mood'
-          },
-          {
-            name: 'Nuts',
-            benefits: 'Healthy fats support brain function and positive mood'
-          }
-        ]
-      }
-    ],
-    "Tired": [
-      {
-        id: '6',
-        title: 'Energy-Boosting Oatmeal',
-        description: 'Natural energy that lasts throughout the day',
-        color: COLORS.earthBrown,
-        ingredients: [
-          {
-            name: 'Oats',
-            benefits: 'Slow-release carbs provide sustained energy'
-          },
-          {
-            name: 'Nuts & Seeds',
-            benefits: 'Protein and healthy fats for long-lasting fuel'
-          },
-          {
-            name: 'Cinnamon',
-            benefits: 'Helps regulate blood sugar for steady energy'
-          }
-        ]
-      },
-      {
-        id: '7',
-        title: 'Green Power Smoothie',
-        description: 'Revitalizing nutrients to fight fatigue',
-        color: COLORS.oliveGreen,
-        ingredients: [
-          {
-            name: 'Spinach',
-            benefits: 'Iron helps combat fatigue and increase energy'
-          },
-          {
-            name: 'Banana',
-            benefits: 'Natural sugars provide quick energy boost'
-          },
-          {
-            name: 'Chia Seeds',
-            benefits: 'Omega-3s support brain function and reduce fatigue'
-          }
-        ]
-      }
-    ]
+    } catch (err) {
+      setError('Failed to load recipes. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  // Default recipes if mood doesn't have specific ones
-  const defaultRecipes = moodRecipes["Calm"];
-
-  // Get recipes for the current mood or default if not found
-  const recipes = moodRecipes[mood as string] || defaultRecipes;
 
   const renderRecipeCard = ({ item, index }) => {
     return (
@@ -199,7 +73,8 @@ export default function RecipeListScreen() {
             pathname: "/app/recipe-detail",
             params: { 
               id: item.id,
-              recipeTitle: item.title
+              recipeTitle: item.title,
+              mood: mood as string
             }
           });
         }}
@@ -226,6 +101,26 @@ export default function RecipeListScreen() {
     }
   };
 
+  const renderLoadingState = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={COLORS.forestGreen} />
+      <Text style={styles.loadingText}>Crafting recipes for your mood...</Text>
+    </View>
+  );
+
+  const renderErrorState = () => (
+    <View style={styles.errorContainer}>
+      <Ionicons name="alert-circle-outline" size={48} color={COLORS.mediumGray} />
+      <Text style={styles.errorText}>{error}</Text>
+      <TouchableOpacity 
+        style={styles.retryButton}
+        onPress={fetchRecipes}
+      >
+        <Text style={styles.retryButtonText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -233,37 +128,47 @@ export default function RecipeListScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>{pageTitle}</Text>
           
-          <Text style={styles.subtitle}>
-            {recipes[activeIndex]?.description || "You'll want something easy, comforting and soothing"}
-          </Text>
+          {!isLoading && recipes.length > 0 && (
+            <Text style={styles.subtitle}>
+              {recipes[activeIndex]?.description || "You'll want something easy, comforting and soothing"}
+            </Text>
+          )}
           
-          <View style={styles.carouselContainer}>
-            <FlatList
-              ref={flatListRef}
-              data={recipes}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={CARD_WIDTH + 20}
-              decelerationRate="fast"
-              onMomentumScrollEnd={handleViewIndexChange}
-              renderItem={renderRecipeCard}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.carouselContent}
-            />
-          </View>
-          
-          {/* Pagination dots */}
-          <View style={styles.pagination}>
-            {recipes.map((_, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.paginationDot, 
-                  index === activeIndex && styles.paginationDotActive
-                ]} 
-              />
-            ))}
-          </View>
+          {isLoading ? (
+            renderLoadingState()
+          ) : error ? (
+            renderErrorState()
+          ) : (
+            <>
+              <View style={styles.carouselContainer}>
+                <FlatList
+                  ref={flatListRef}
+                  data={recipes}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={CARD_WIDTH + 20}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={handleViewIndexChange}
+                  renderItem={renderRecipeCard}
+                  keyExtractor={item => item.id}
+                  contentContainerStyle={styles.carouselContent}
+                />
+              </View>
+              
+              {/* Pagination dots */}
+              <View style={styles.pagination}>
+                {recipes.map((_, index) => (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.paginationDot, 
+                      index === activeIndex && styles.paginationDotActive
+                    ]} 
+                  />
+                ))}
+              </View>
+            </>
+          )}
           
           <TouchableOpacity 
             style={styles.backButton}
@@ -289,61 +194,61 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 25,
-    paddingTop: 50,
+    padding: 20,
+    paddingTop: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontFamily: 'Serif',
     color: COLORS.darkGray,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   subtitle: {
-    fontSize: 24,
+    fontSize: 16,
     fontFamily: 'Serif',
     color: COLORS.darkGray,
-    marginBottom: 30,
-    lineHeight: 32,
+    marginBottom: 20,
+    lineHeight: 22,
   },
   carouselContainer: {
-    height: 400,
-    marginBottom: 20,
+    height: 350,
+    marginBottom: 15,
   },
   carouselContent: {
     paddingRight: 25,
   },
   recipeCard: {
     width: CARD_WIDTH,
-    height: 400,
+    height: 350,
     borderRadius: 20,
     marginRight: 20,
-    padding: 30,
+    padding: 20,
     ...SHADOWS.medium,
   },
   recipeTitle: {
-    fontSize: 32,
+    fontSize: 24,
     fontFamily: 'Serif',
     color: COLORS.darkGray,
-    marginBottom: 30,
-  },
-  ingredientItem: {
     marginBottom: 20,
   },
+  ingredientItem: {
+    marginBottom: 12,
+  },
   ingredientName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '600',
     color: COLORS.darkGray,
-    marginBottom: 5,
+    marginBottom: 2,
   },
   ingredientBenefits: {
-    fontSize: 16,
+    fontSize: 13,
     color: COLORS.darkGray,
-    lineHeight: 22,
+    lineHeight: 16,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 30,
+    marginBottom: 15,
   },
   paginationDot: {
     width: 8,
@@ -371,6 +276,44 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: 'white',
     marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 18,
+    color: COLORS.darkGray,
+    textAlign: 'center',
+  },
+  // Error state styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: COLORS.darkGray,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: COLORS.forestGreen,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    ...SHADOWS.small,
+  },
+  retryButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '500',
   },

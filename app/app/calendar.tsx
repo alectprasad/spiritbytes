@@ -4,86 +4,106 @@ import { StatusBar } from "expo-status-bar";
 import { Calendar } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
+import { useRouter } from "expo-router";
 import Navbar from "@/app/components/Navbar";
 import { COLORS, SHADOWS } from "@/app/constants/theme";
+import { StorageService, SavedRecipe } from "@/app/services/StorageService";
 
 export default function CalendarScreen() {
-  const [selectedDate, setSelectedDate] = useState("2025-03-19");
-  const [currentMood, setCurrentMood] = useState(null);
-  const [currentRecipes, setCurrentRecipes] = useState([]);
-  const currentMonth = "March 2025"; // This would be dynamic in a real app
+  const router = useRouter();
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const currentMonth = format(new Date(), "MMMM yyyy");
   
-  // Sample mood data - in a real app this would come from a database
-  const moodData = {
-    "2025-03-19": {
-      time: "8 PM",
-      mood: "Calm"
-    },
-    "2025-03-20": {
-      time: "7 PM",
-      mood: "Happy"
-    },
-    "2025-03-15": {
-      time: "9 PM",
-      mood: "Relaxed"
-    },
-    "2025-03-10": {
-      time: "6 PM",
-      mood: "Energetic"
+  // Fetch saved recipes on component mount
+  useEffect(() => {
+    fetchSavedRecipes();
+  }, []);
+
+  const fetchSavedRecipes = async () => {
+    setIsLoading(true);
+    try {
+      const recipes = await StorageService.getSavedRecipes();
+      setSavedRecipes(recipes);
+    } catch (error) {
+      setSavedRecipes([]);
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  // Sample saved recipe for the selected date
-  const savedRecipes = {
-    "2025-03-19": [
-      {
-        id: "1",
-        title: "Banana & Peanut Butter Toast",
-        color: COLORS.sandBeige
-      }
-    ],
-    "2025-03-20": [
-      {
-        id: "2",
-        title: "Turmeric Golden Milk",
-        color: COLORS.terracotta
-      },
-      {
-        id: "3",
-        title: "Avocado Toast",
-        color: COLORS.oliveGreen
-      }
-    ],
-    "2025-03-15": [
-      {
-        id: "4",
-        title: "Green Smoothie Bowl",
-        color: COLORS.forestGreen
-      }
-    ],
-    "2025-03-10": [
-      {
-        id: "5",
-        title: "Dark Chocolate & Almonds",
-        color: COLORS.earthBrown
-      }
-    ]
-  };
 
-  // Update mood and recipes when date changes
-  useEffect(() => {
-    setCurrentMood(getMoodForDate(selectedDate));
-    setCurrentRecipes(getRecipesForDate(selectedDate));
-  }, [selectedDate]);
-
-  // Get mood data for selected date
-  const getMoodForDate = (date) => {
-    return moodData[date] || null;
+  // Get mood data for a specific date
+  const getMoodForDate = (date: string) => {
+    const recipesOnDate = savedRecipes.filter(recipe => {
+      const recipeDate = format(new Date(recipe.savedAt), "yyyy-MM-dd");
+      return recipeDate === date;
+    });
+    
+    if (recipesOnDate.length === 0) {
+      return null;
+    }
+    
+    // Return the mood from the most recent recipe that day
+    const sortedRecipes = recipesOnDate.sort(
+      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+    );
+    
+    return {
+      time: format(new Date(sortedRecipes[0].savedAt), "h a"),
+      mood: sortedRecipes[0].mood
+    };
   };
   
-  // Get recipes for selected date
-  const getRecipesForDate = (date) => {
-    return savedRecipes[date] || [];
+  // Get recipes for a specific date
+  const getRecipesForDate = (date: string) => {
+    return savedRecipes.filter(recipe => {
+      const recipeDate = format(new Date(recipe.savedAt), "yyyy-MM-dd");
+      return recipeDate === date;
+    });
+  };
+
+  // Get all dates that have saved recipes
+  const getDatesWithRecipes = () => {
+    const dates: {[key: string]: any} = {};
+    
+    savedRecipes.forEach(recipe => {
+      const date = format(new Date(recipe.savedAt), "yyyy-MM-dd");
+      dates[date] = {
+        marked: true,
+        dotColor: COLORS.forestGreen
+      };
+    });
+    
+    // Add selected date styling
+    if (dates[selectedDate]) {
+      dates[selectedDate] = {
+        ...dates[selectedDate],
+        selected: true,
+        selectedColor: COLORS.forestGreen
+      };
+    } else {
+      dates[selectedDate] = {
+        selected: true,
+        selectedColor: COLORS.forestGreen
+      };
+    }
+    
+    return dates;
+  };
+
+  // Handle navigation to recipe detail
+  const handleRecipePress = (recipe: SavedRecipe) => {
+    router.push({
+      pathname: "/app/recipe-detail",
+      params: { 
+        id: recipe.id,
+        recipeTitle: recipe.title,
+        mood: recipe.mood,
+        color: recipe.color,
+        fromCalendar: 'true'
+      }
+    });
   };
 
   // Custom calendar theme
@@ -106,21 +126,9 @@ export default function CalendarScreen() {
     textDayHeaderFontSize: 13
   };
 
-  // Mark dates with data and selected date on calendar
-  const markedDates = {
-    ...Object.keys(moodData).reduce((acc, date) => {
-      acc[date] = {
-        marked: true,
-        dotColor: COLORS.forestGreen
-      };
-      return acc;
-    }, {}),
-    [selectedDate]: {
-      selected: true,
-      selectedColor: COLORS.forestGreen,
-      disableTouchEvent: false
-    }
-  };
+  // Get current mood and recipes
+  const currentMood = getMoodForDate(selectedDate);
+  const currentRecipes = getRecipesForDate(selectedDate);
 
   return (
     <View style={styles.container}>
@@ -133,7 +141,7 @@ export default function CalendarScreen() {
             <Calendar
               current={selectedDate}
               onDayPress={(day) => setSelectedDate(day.dateString)}
-              markedDates={markedDates}
+              markedDates={getDatesWithRecipes()}
               hideExtraDays={false}
               theme={calendarTheme}
               renderArrow={(direction) => (
@@ -167,8 +175,12 @@ export default function CalendarScreen() {
                 <TouchableOpacity
                   key={recipe.id}
                   style={[styles.recipeItem, { backgroundColor: recipe.color }]}
+                  onPress={() => handleRecipePress(recipe)}
                 >
                   <Text style={styles.recipeTitle}>{recipe.title}</Text>
+                  <Text style={styles.recipeTime}>
+                    Saved at {format(new Date(recipe.savedAt), "h:mm a")}
+                  </Text>
                 </TouchableOpacity>
               ))
             ) : (
@@ -248,7 +260,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.darkGray,
-    textAlign: 'center',
+  },
+  recipeTime: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    marginTop: 5,
+    fontStyle: 'italic',
   },
   spacer: {
     height: 50,

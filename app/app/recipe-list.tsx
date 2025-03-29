@@ -74,7 +74,8 @@ export default function RecipeListScreen() {
             params: { 
               id: item.id,
               recipeTitle: item.title,
-              mood: mood as string
+              mood: mood as string,
+              color: item.color
             }
           });
         }}

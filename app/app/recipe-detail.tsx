@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { StorageService } from "@/app/services/StorageService";import React, { useState, useEffect } from "react";
 import { 
   View, 
   Text, 
@@ -18,7 +18,7 @@ import { RecipeDetailService, RecipeDetails } from "@/app/services/RecipeDetailS
 
 export default function RecipeDetailScreen() {
   const router = useRouter();
-  const { id = "1", recipeTitle = "Recipe", mood = "Calm" } = useLocalSearchParams();
+  const { id = "1", recipeTitle = "Recipe", mood = "Calm", color = COLORS.sandBeige } = useLocalSearchParams();
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,27 @@ export default function RecipeDetailScreen() {
 
   // Fetch recipe details on component mount
   useEffect(() => {
-    fetchRecipeDetails();
+    // Check first if this is a saved recipe
+    const checkSavedRecipe = async () => {
+      try {
+        const savedRecipe = await StorageService.getSavedRecipeByTitle(recipeTitle as string);
+        if (savedRecipe) {
+          // If we have the saved recipe, use its stored details
+          setRecipeData(savedRecipe.recipeDetails);
+          setIsSaved(true);
+          setIsLoading(false);
+        } else {
+          // Not saved, fetch from OpenAI
+          setIsSaved(false);
+          fetchRecipeDetails();
+        }
+      } catch (error) {
+        // If error occurs when checking, fetch from OpenAI
+        fetchRecipeDetails();
+      }
+    };
+    
+    checkSavedRecipe();
   }, []);
 
   const fetchRecipeDetails = async () => {
@@ -46,13 +66,39 @@ export default function RecipeDetailScreen() {
     }
   };
 
-  const handleSave = () => {
-    setIsSaved(!isSaved);
-    Alert.alert(
-      isSaved ? "Recipe Removed" : "Recipe Saved",
-      isSaved ? "This recipe has been removed from your favorites." : "This recipe has been added to your favorites.",
-      [{ text: "OK" }]
-    );
+  const handleSave = async () => {
+    try {
+      if (isSaved) {
+        // Recipe is already saved, remove it
+        await StorageService.removeRecipe(recipeTitle as string);
+        setIsSaved(false);
+        Alert.alert(
+          "Recipe Removed",
+          "This recipe has been removed from your favorites."
+        );
+      } else {
+        // Recipe is not saved, save it with full details
+        if (recipeData) {
+          await StorageService.saveRecipe(
+            recipeData, 
+            mood as string, 
+            color as string
+          );
+          setIsSaved(true);
+          Alert.alert(
+            "Recipe Saved",
+            "This recipe has been added to your favorites."
+          );
+        }
+      }
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        isSaved 
+          ? "Failed to remove recipe. Please try again." 
+          : "Failed to save recipe. Please try again."
+      );
+    }
   };
 
   // Loading state component

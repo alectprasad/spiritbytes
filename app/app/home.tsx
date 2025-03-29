@@ -71,10 +71,13 @@ export default function HomeScreen() {
 
   const handleNextPress = () => {
     if (selectedMood) {
-      // Navigate to the analysis screen with the selected mood
+      // Navigate to the recipe list screen with the selected mood
       router.push({
-        pathname: "/app/analysis",
-        params: { mood: selectedMood }
+        pathname: "/app/recipe-list",
+        params: { 
+          mood: selectedMood,
+          source: 'home'
+        }
       });
     }
   };

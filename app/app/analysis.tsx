@@ -1,269 +1,212 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, SafeAreaView, StyleSheet, TouchableOpacity, Image, ScrollView } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, SafeAreaView, StyleSheet, TouchableOpacity } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { Svg, Circle, Path } from "react-native-svg";
 import Navbar from "@/app/components/Navbar";
-import { COLORS, SHADOWS } from "@/app/constants/theme";
+import { COLORS } from "@/app/constants/theme";
+
+// Semi-circle progress component
+const SemiCircleProgress = ({ percentage, size = 120 }) => {
+  const strokeWidth = 12;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * Math.PI;
+  const semiCircumference = circumference * 1;
+  const strokeDashoffset = semiCircumference - (percentage / 100) * semiCircumference;
+  
+  return (
+    <Svg width={size} height={size / 2} viewBox={`0 0 ${size} ${size / 2}`}>
+      <Path
+        d={`M ${strokeWidth / 2} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${size / 2}`}
+        fill="none"
+        stroke="#E0D2C3"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Path
+        d={`M ${strokeWidth / 2} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${size / 2}`}
+        fill="none"
+        stroke="#B79B7E"
+        strokeDasharray={semiCircumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+};
 
 export default function AnalysisScreen() {
   const router = useRouter();
-  const { mood, imageUri, rawEmotion, confidence } = useLocalSearchParams();
-  const [recommendations, setRecommendations] = useState<string[]>([]);
+  const { mood, imageUri } = useLocalSearchParams();
+  const [selectedResponse, setSelectedResponse] = useState(null);
+  const [emotionReadings, setEmotionReadings] = useState([]);
   
-  // Convert the mood to string and make first letter uppercase, rest lowercase
-  const formattedMood = typeof mood === 'string' 
-    ? mood.charAt(0).toUpperCase() + mood.slice(1).toLowerCase() 
-    : 'Neutral';
+  // List of possible moods from home page
+  const possibleMoods = [
+    "Fine", "Sleepy", "Calm", "Playful", 
+    "Tired", "Confident", "Tensed", "Happy", 
+    "Stressed", "Anxious", "Relaxed", "Energetic"
+  ];
 
+  // On component mount, select 3 random emotions with random percentages
   useEffect(() => {
-    // Generate recommendations based on mood
-    generateRecommendations(formattedMood);
-  }, [formattedMood]);
-
-  const generateRecommendations = (currentMood: string) => {
-    // Sample recommendations based on mood
-    const moodRecommendations: Record<string, string[]> = {
-      "Happy": [
-        "Festive fruit salad with citrus dressing",
-        "Bright berry smoothie bowl with honey",
-        "Celebratory chocolate-dipped strawberries"
-      ],
-      "Playful": [
-        "Colorful veggie rainbow wrap",
-        "Fun-shaped pancakes with fruit faces",
-        "Playful pasta salad with vibrant vegetables"
-      ],
-      "Relaxed": [
-        "Soothing chamomile tea with honey",
-        "Calming lavender-infused yogurt parfait",
-        "Gentle oatmeal with warm spices"
-      ],
-      "Tired": [
-        "Energizing banana and peanut butter toast",
-        "Revitalizing green smoothie with spinach and apple",
-        "Sustaining quinoa bowl with avocado"
-      ],
-      "Stressed": [
-        "Comforting dark chocolate squares",
-        "Anti-inflammatory turmeric golden milk",
-        "Calming herbal tea blend with valerian root"
-      ],
-      "Anxious": [
-        "Grounding root vegetable soup",
-        "Warming cinnamon-spiced oatmeal",
-        "Soothing peppermint tea with honey"
-      ],
-      "Sad": [
-        "Mood-boosting omega-3 rich salmon",
-        "Comforting vegetable soup with turmeric",
-        "Dark chocolate with nuts and dried fruits"
-      ]
+    // Function to get random unique moods
+    const getRandomMoods = () => {
+      const shuffled = [...possibleMoods].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, 3);
     };
 
-    // Default recommendations if mood isn't in our predefined list
-    const defaultRecs = [
-      "Balanced meal with protein, vegetables, and whole grains",
-      "Hydrating infused water with cucumber and mint",
-      "Nourishing bowl of seasonal fruits"
-    ];
-
-    setRecommendations(moodRecommendations[currentMood] || defaultRecs);
-  };
-
-  const getMoodColor = (currentMood: string): string[] => {
-    const moodColors: Record<string, string[]> = {
-      "Happy": [COLORS.sandBeige, COLORS.terracotta],
-      "Playful": [COLORS.oliveGreen, COLORS.sandBeige],
-      "Relaxed": [COLORS.sageMoss, COLORS.forestGreen],
-      "Tired": [COLORS.earthBrown, COLORS.terracotta],
-      "Stressed": [COLORS.forestGreen, COLORS.earthBrown],
-      "Anxious": [COLORS.terracotta, COLORS.earthBrown],
-      "Sad": [COLORS.sageMoss, COLORS.forestGreen],
+    // Function to generate a random percentage between 40-90
+    const getRandomPercentage = () => {
+      return Math.floor(Math.random() * 51) + 40; // 40-90
     };
 
-    return moodColors[currentMood] || COLORS.splashGradient;
+    // Create array of random emotions with percentages in descending order
+    const randomEmotions = getRandomMoods().map(emotion => ({
+      type: emotion,
+      percentage: getRandomPercentage()
+    }));
+
+    // Sort by percentage (highest first)
+    randomEmotions.sort((a, b) => b.percentage - a.percentage);
+    
+    setEmotionReadings(randomEmotions);
+  }, []);
+
+  const handleResponse = (response) => {
+    setSelectedResponse(response);
+    
+    if (response === 'yes') {
+      // If user confirms, navigate to recipe list with top emotion
+      const topEmotion = emotionReadings.length > 0 ? emotionReadings[0].type : 'Calm';
+      router.push({
+        pathname: "/app/recipe-list",
+        params: { 
+          mood: topEmotion,
+          source: 'analysis'
+        }
+      });
+    } else {
+      // If user says "Not quite", go back to home
+      router.push("/app/home");
+    }
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <StatusBar style="light" translucent backgroundColor="transparent" />
-      <LinearGradient
-        colors={getMoodColor(formattedMood)}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }}>
-          <ScrollView style={styles.scrollContainer}>
-            <View style={styles.container}>
-              <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={24} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.title}>Emotion Analysis</Text>
-                <View style={{ width: 24 }} />
-              </View>
-
-              {imageUri && (
-                <View style={styles.imageContainer}>
-                  <Image 
-                    source={{ uri: imageUri as string }} 
-                    style={styles.capturedImage} 
-                  />
+    <View style={styles.container}>
+      <StatusBar style="dark" />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          <Text style={styles.title}>I sense that you are...</Text>
+          
+          <View style={styles.emotionsContainer}>
+            {emotionReadings.map((emotion, index) => (
+              <View key={index} style={styles.emotionRow}>
+                <View style={styles.progressContainer}>
+                  <SemiCircleProgress percentage={emotion.percentage} />
+                  <Text style={styles.percentageText}>{emotion.percentage}%</Text>
                 </View>
-              )}
-
-              <View style={styles.moodCard}>
-                <Text style={styles.moodLabel}>Your Current Mood</Text>
-                <Text style={styles.moodValue}>{formattedMood}</Text>
-                
-                {rawEmotion && (
-                  <View style={styles.emotionDetails}>
-                    <Text style={styles.emotionText}>
-                      Detected emotion: {rawEmotion} 
-                      {confidence && ` (${confidence}% confidence)`}
-                    </Text>
-                  </View>
-                )}
-                
-                <View style={styles.divider} />
-                
-                <Text style={styles.recommendationsTitle}>Recommended Foods</Text>
-                <View style={styles.recommendationsList}>
-                  {recommendations.map((item, index) => (
-                    <View key={index} style={styles.recommendationItem}>
-                      <Ionicons name="leaf" size={16} color={COLORS.forestGreen} />
-                      <Text style={styles.recommendationText}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-                
-                <TouchableOpacity 
-                  style={styles.recipeButton}
-                  onPress={() => {
-                    // In a real app, this would navigate to recipe details
-                    console.log("Navigate to recipes for", formattedMood);
-                  }}
-                >
-                  <Text style={styles.recipeButtonText}>See Detailed Recipes</Text>
-                  <Ionicons name="arrow-forward" size={18} color="white" />
-                </TouchableOpacity>
+                <Text style={styles.emotionText}>{emotion.type}</Text>
               </View>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
+            ))}
+          </View>
+          
+          <Text style={styles.questionText}>Is my reading correct?</Text>
+          
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity 
+              style={[styles.responseButton, styles.noButton]}
+              onPress={() => handleResponse('no')}
+            >
+              <Text style={styles.buttonText}>Not quite</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.responseButton, styles.yesButton]}
+              onPress={() => handleResponse('yes')}
+            >
+              <Text style={styles.buttonText}>Yes</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
       <Navbar />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-    paddingTop: 40,
-    paddingBottom: 20,
-    paddingHorizontal: 30,
+    backgroundColor: 'white',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+  safeArea: {
+    flex: 1,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  content: {
+    flex: 1,
+    padding: 25,
+    paddingTop: 50,
   },
   title: {
-    fontSize: 20,
-    fontFamily: 'Serif',
-    color: 'white',
-    fontWeight: '500',
-  },
-  imageContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  capturedImage: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    borderWidth: 4,
-    borderColor: 'white',
-    ...SHADOWS.medium,
-  },
-  moodCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 25,
-    ...SHADOWS.medium,
-  },
-  moodLabel: {
-    fontSize: 16,
-    color: COLORS.darkGray,
-    marginBottom: 8,
-  },
-  moodValue: {
     fontSize: 32,
     fontFamily: 'Serif',
-    color: COLORS.forestGreen,
-    marginBottom: 10,
-  },
-  emotionDetails: {
-    marginBottom: 10,
-    padding: 10,
-    backgroundColor: 'rgba(56, 82, 61, 0.1)',
-    borderRadius: 10,
-  },
-  emotionText: {
-    fontSize: 14,
     color: COLORS.darkGray,
+    marginBottom: 50,
   },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.lightGray,
-    marginVertical: 20,
+  emotionsContainer: {
+    marginBottom: 60,
   },
-  recommendationsTitle: {
-    fontSize: 18,
-    fontFamily: 'Serif',
-    color: COLORS.darkGray,
-    marginBottom: 15,
-  },
-  recommendationsList: {
-    marginBottom: 25,
-  },
-  recommendationItem: {
+  emotionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 30,
   },
-  recommendationText: {
-    fontSize: 16,
-    color: COLORS.darkGray,
-    marginLeft: 10,
-  },
-  recipeButton: {
-    backgroundColor: COLORS.forestGreen,
-    flexDirection: 'row',
+  progressContainer: {
+    width: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
-    borderRadius: 30,
-    ...SHADOWS.small,
+    marginRight: 30,
   },
-  recipeButtonText: {
+  percentageText: {
+    position: 'absolute',
+    fontSize: 26,
+    fontWeight: '600',
+    color: COLORS.darkGray,
+  },
+  emotionText: {
+    fontSize: 32,
+    color: COLORS.darkGray,
+    fontFamily: 'Serif',
+  },
+  questionText: {
+    fontSize: 28,
+    fontFamily: 'Serif',
+    color: COLORS.darkGray,
+    marginBottom: 30,
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  responseButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    minWidth: 140,
+    alignItems: 'center',
+  },
+  noButton: {
+    backgroundColor: '#A9A9A9',
+  },
+  yesButton: {
+    backgroundColor: COLORS.forestGreen,
+  },
+  buttonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '500',
-    marginRight: 8,
   },
 });

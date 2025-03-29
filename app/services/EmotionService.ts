@@ -1,6 +1,21 @@
+// app/services/EmotionService.ts
+
+// Define the interface before using it
+export interface EmotionAnalysisResult {
+  success: boolean;
+  message: string;
+  emotions: Emotion[];
+  imageUrl?: string;
+}
+
+export interface Emotion {
+  type: string;
+  confidence: number;
+}
+
 export class EmotionService {
-  private static readonly BUCKET_NAME = 'spiritbytes-public-images';
-  private static readonly REGION = 'us-east-2';
+  private static readonly BUCKET_NAME = 'spiritbytes-profile-photos';
+  private static readonly REGION = 'us-east-2'; // Use your region
 
   static async analyzeEmotion(imageUri: string): Promise<EmotionAnalysisResult> {
     try {
@@ -19,7 +34,7 @@ export class EmotionService {
       console.log('Uploading image to S3...');
       
       // Upload directly to S3 bucket
-      const uploadResponse = await fetch(uploadUrl, {
+      await fetch(uploadUrl, {
         method: 'PUT',
         body: imageBlob,
         headers: {
@@ -27,15 +42,10 @@ export class EmotionService {
         }
       });
       
-      if (!uploadResponse.ok) {
-        throw new Error(`S3 upload failed with status: ${uploadResponse.status}`);
-      }
+      console.log('Image uploaded, calling API...');
       
-      console.log('Image uploaded successfully, calling API...');
-      
-      // Call your API with safer error handling
-      const apiUrl = 'https://ddm3d6xmm3.execute-api.us-east-1.amazonaws.com/dev/analyze';
-      const apiResponse = await fetch(apiUrl, {
+      // Call your Lambda with the image key
+      const apiResponse = await fetch('https://ddm3d6xmm3.execute-api.us-east-1.amazonaws.com/dev/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -46,45 +56,18 @@ export class EmotionService {
         })
       });
       
-      // Check response status
-      if (!apiResponse.ok) {
-        const errorText = await apiResponse.text();
-        console.error('API returned error status:', apiResponse.status, errorText);
-        throw new Error(`API request failed with status: ${apiResponse.status}`);
-      }
-      
-      // Get the raw text and log it for debugging
-      const rawText = await apiResponse.text();
-      console.log('Raw API response:', rawText.substring(0, 100) + '...');
-      
-      // Create a fallback response in case parsing fails
-      const fallbackResult: EmotionAnalysisResult = {
-        success: false,
-        message: "Failed to parse API response",
-        emotions: []
-      };
-      
-      // Try to parse the JSON with manual cleaning if needed
-      try {
-        // If the response contains invalid escape sequences, try to clean it
-        const cleanedText = rawText
-          .replace(/\\/g, '\\\\')  // Double escape all backslashes
-          .replace(/\\"/g, '\\"')  // Fix escaped quotes
-          .replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // Remove control characters
-          
-        return JSON.parse(cleanedText) || fallbackResult;
-      } catch (parseError) {
-        console.error('JSON parse error after cleaning:', parseError);
-        
-        // As a last resort, return a basic response
-        return fallbackResult;
-      }
+      return await apiResponse.json();
     } catch (error) {
       console.error('Error in analyzeEmotion:', error);
       throw error;
     }
   }
   
+  /**
+   * Maps emotion types to mood descriptions
+   * @param emotion The primary emotion type from Rekognition
+   * @returns A user-friendly mood description
+   */
   static mapEmotionToMood(emotion: string): string {
     const emotionMap: {[key: string]: string} = {
       'HAPPY': 'Happy',
@@ -95,8 +78,9 @@ export class EmotionService {
       'SURPRISED': 'Playful',
       'CALM': 'Relaxed',
       'FEAR': 'Anxious',
+      // Add more mappings as needed
     };
     
-    return emotionMap[emotion] || 'Relaxed';
+    return emotionMap[emotion] || 'Relaxed'; // Default to Relaxed if not found
   }
 }

@@ -59,6 +59,19 @@ export default function CameraScreen() {
         console.log(`Picture taken: ${photo.uri}`);
         console.log(`Picture width: ${photo.width}, height: ${photo.height}`);
         
+        // Navigate directly to the analysis screen
+        router.push({
+          pathname: "/app/analysis",
+          params: { 
+            imageUri: photo.uri
+          }
+        });
+        
+        setIsProcessing(false);
+        
+        /* 
+        // This code is commented out as we now go straight to analysis screen
+        // instead of processing with the API first
         try {
           // Double-check the EmotionService is defined
           console.log('Checking EmotionService before analysis:', EmotionService ? 'Defined' : 'Undefined');
@@ -121,6 +134,7 @@ export default function CameraScreen() {
             ]
           );
         }
+        */
       } catch (error: any) {
         console.error('Failed to take picture:', error);
         Alert.alert('Error', 'Failed to take picture');
@@ -152,7 +166,7 @@ export default function CameraScreen() {
           {isProcessing && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={COLORS.white} />
-              <Text style={styles.loadingText}>Analyzing emotions...</Text>
+              <Text style={styles.loadingText}>Processing...</Text>
             </View>
           )}
           

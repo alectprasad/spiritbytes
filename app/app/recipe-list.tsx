@@ -23,7 +23,7 @@ const CARD_WIDTH = width * 0.85;
 
 export default function RecipeListScreen() {
   const router = useRouter();
-  const { mood = "Calm", source = "home" } = useLocalSearchParams();
+  const { mood = "Calm", allMoods, source = "home" } = useLocalSearchParams();
   const flatListRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pageTitle, setPageTitle] = useState("I found these for you...");
@@ -43,22 +43,31 @@ export default function RecipeListScreen() {
   // Fetch recipes on component mount
   useEffect(() => {
     fetchRecipes();
-  }, [mood]);
+  }, [mood, allMoods]);
 
   const fetchRecipes = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Use OpenAI to generate recipes based on mood
-      const recipeData = await OpenAIService.generateRecipes(mood as string, 3);
+      let recipeData: Recipe[];
+      
+      if (source === 'analysis' && allMoods) {
+        // If coming from analysis with multiple moods, use all moods
+        const parsedMoods = JSON.parse(allMoods as string) as string[];
+        recipeData = await OpenAIService.generateRecipesForMultipleMoods(parsedMoods, 3);
+      } else {
+        // If coming from home or no multiple moods available, use single mood
+        recipeData = await OpenAIService.generateRecipes(mood as string, 3);
+      }
       
       if (!recipeData || recipeData.length === 0) {
-        setError('Failed to generate recipes. Please try again.');
+        setError('No recipes were generated. Please try again.');
       } else {
         setRecipes(recipeData);
       }
-    } catch (err) {
-      setError('Failed to load recipes. Please try again.');
+    } catch (err: any) {
+      // Display the actual error message from the API when possible
+      setError(err.message || 'Failed to load recipes. Please try again.');
     } finally {
       setIsLoading(false);
     }

@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { Svg, Circle, Path } from "react-native-svg";
 import Navbar from "@/app/components/Navbar";
 import { COLORS } from "@/app/constants/theme";
+import { MappedEmotion } from "@/app/services/EmotionService";
 
 // Semi-circle progress component
 const SemiCircleProgress = ({ percentage, size = 120 }) => {
@@ -38,19 +39,37 @@ const SemiCircleProgress = ({ percentage, size = 120 }) => {
 
 export default function AnalysisScreen() {
   const router = useRouter();
-  const { mood, imageUri } = useLocalSearchParams();
+  const { imageUri, emotionsData } = useLocalSearchParams();
   const [selectedResponse, setSelectedResponse] = useState(null);
-  const [emotionReadings, setEmotionReadings] = useState([]);
+  const [emotionReadings, setEmotionReadings] = useState<MappedEmotion[]>([]);
   
-  // List of possible moods from home page
+  // List of possible moods from home page for fallback
   const possibleMoods = [
     "Fine", "Sleepy", "Calm", "Playful", 
     "Tired", "Confident", "Tensed", "Happy", 
     "Stressed", "Anxious", "Relaxed", "Energetic"
   ];
 
-  // On component mount, select 3 random emotions with random percentages
+  // On component mount, process the emotions data
   useEffect(() => {
+    if (emotionsData) {
+      try {
+        // Parse the emotions data from the route params
+        const parsedEmotions = JSON.parse(emotionsData as string) as MappedEmotion[];
+        setEmotionReadings(parsedEmotions);
+      } catch (error) {
+        console.error("Error parsing emotions data:", error);
+        // Fallback to random emotions if parsing fails
+        setRandomEmotions();
+      }
+    } else {
+      // If no emotions data was provided, generate random emotions
+      setRandomEmotions();
+    }
+  }, [emotionsData]);
+
+  // Function to set random emotions as a fallback
+  const setRandomEmotions = () => {
     // Function to get random unique moods
     const getRandomMoods = () => {
       const shuffled = [...possibleMoods].sort(() => 0.5 - Math.random());
@@ -72,21 +91,32 @@ export default function AnalysisScreen() {
     randomEmotions.sort((a, b) => b.percentage - a.percentage);
     
     setEmotionReadings(randomEmotions);
-  }, []);
+  };
 
   const handleResponse = (response) => {
     setSelectedResponse(response);
     
     if (response === 'yes') {
-      // If user confirms, navigate to recipe list with top emotion
-      const topEmotion = emotionReadings.length > 0 ? emotionReadings[0].type : 'Calm';
-      router.push({
-        pathname: "/app/recipe-list",
-        params: { 
-          mood: topEmotion,
-          source: 'analysis'
-        }
-      });
+      // If user confirms, navigate to recipe list with all three emotions
+      if (emotionReadings.length > 0) {
+        router.push({
+          pathname: "/app/recipe-list",
+          params: { 
+            mood: emotionReadings[0].type, // Primary mood for display
+            allMoods: JSON.stringify(emotionReadings.map(e => e.type)), // All three moods for OpenAI
+            source: 'analysis'
+          }
+        });
+      } else {
+        // Fallback if no emotions
+        router.push({
+          pathname: "/app/recipe-list",
+          params: { 
+            mood: 'Calm',
+            source: 'analysis'
+          }
+        });
+      }
     } else {
       // If user says "Not quite", go back to home
       router.push("/app/home");

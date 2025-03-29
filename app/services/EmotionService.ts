@@ -13,6 +13,11 @@ export interface Emotion {
   confidence: number;
 }
 
+export interface MappedEmotion {
+  type: string;
+  percentage: number;
+}
+
 export class EmotionService {
   private static readonly BUCKET_NAME = 'spiritbytes-profile-photos';
   private static readonly REGION = 'us-east-2'; // Use your region
@@ -45,7 +50,7 @@ export class EmotionService {
       console.log('Image uploaded, calling API...');
       
       // Call your Lambda with the image key
-      const apiResponse = await fetch('https://ddm3d6xmm3.execute-api.us-east-1.amazonaws.com/dev/analyze', {
+      const apiResponse = await fetch('https://yvnhgvz1p8.execute-api.us-east-2.amazonaws.com/dev/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -64,8 +69,27 @@ export class EmotionService {
   }
   
   /**
+   * Gets the top three emotions and maps them to user-friendly mood descriptions
+   * @param emotions Array of emotions from Rekognition
+   * @returns Array of the top three mapped emotions with percentages
+   */
+  static getTopThreeEmotions(emotions: Emotion[]): MappedEmotion[] {
+    // Make sure we're working with a sorted array (highest confidence first)
+    const sortedEmotions = [...emotions].sort((a, b) => b.confidence - a.confidence);
+    
+    // Take only the top 3 emotions (or fewer if there aren't 3)
+    const topThree = sortedEmotions.slice(0, 3);
+    
+    // Map the emotion types to user-friendly mood names
+    return topThree.map(emotion => ({
+      type: this.mapEmotionToMood(emotion.type),
+      percentage: Math.round(emotion.confidence) // Round to nearest integer
+    }));
+  }
+  
+  /**
    * Maps emotion types to mood descriptions
-   * @param emotion The primary emotion type from Rekognition
+   * @param emotion The emotion type from Rekognition
    * @returns A user-friendly mood description
    */
   static mapEmotionToMood(emotion: string): string {
@@ -81,6 +105,6 @@ export class EmotionService {
       // Add more mappings as needed
     };
     
-    return emotionMap[emotion] || 'Relaxed'; // Default to Relaxed if not found
+    return emotionMap[emotion] || emotion.charAt(0).toUpperCase() + emotion.slice(1).toLowerCase();
   }
 }

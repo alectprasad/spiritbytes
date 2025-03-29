@@ -59,19 +59,6 @@ export default function CameraScreen() {
         console.log(`Picture taken: ${photo.uri}`);
         console.log(`Picture width: ${photo.width}, height: ${photo.height}`);
         
-        // Navigate directly to the analysis screen
-        router.push({
-          pathname: "/app/analysis",
-          params: { 
-            imageUri: photo.uri
-          }
-        });
-        
-        setIsProcessing(false);
-        
-        /* 
-        // This code is commented out as we now go straight to analysis screen
-        // instead of processing with the API first
         try {
           // Double-check the EmotionService is defined
           console.log('Checking EmotionService before analysis:', EmotionService ? 'Defined' : 'Undefined');
@@ -83,21 +70,17 @@ export default function CameraScreen() {
           console.log('Emotion analysis result:', JSON.stringify(emotionResult));
           
           if (emotionResult.success && emotionResult.emotions && emotionResult.emotions.length > 0) {
-            const primaryEmotion = emotionResult.emotions[0].type;
-            const confidence = emotionResult.emotions[0].confidence;
-            const detectedMood = EmotionService.mapEmotionToMood(primaryEmotion);
+            // Get top 3 emotions to display in the analysis screen
+            const topEmotions = EmotionService.getTopThreeEmotions(emotionResult.emotions);
             
-            console.log(`Detected primary emotion: ${primaryEmotion} with confidence: ${confidence}`);
-            console.log(`Mapped mood: ${detectedMood}`);
+            console.log('Top three emotions:', JSON.stringify(topEmotions));
             
-            // Navigate to analysis screen with detected mood
+            // Navigate to analysis screen with top emotions data
             router.push({
               pathname: "/app/analysis",
               params: { 
-                mood: detectedMood,
                 imageUri: photo.uri,
-                rawEmotion: primaryEmotion,
-                confidence: confidence.toFixed(2)
+                emotionsData: JSON.stringify(topEmotions)
               }
             });
           } else {
@@ -119,6 +102,14 @@ export default function CameraScreen() {
         } catch (error: any) {
           console.error("Error analyzing emotions:", error);
           
+          // If analysis fails, still go to analysis screen with a default mood
+          router.push({
+            pathname: "/app/analysis",
+            params: { 
+              imageUri: photo.uri
+            }
+          });
+          
           // Show detailed error to help with debugging
           Alert.alert(
             "Analysis Failed", 
@@ -134,7 +125,6 @@ export default function CameraScreen() {
             ]
           );
         }
-        */
       } catch (error: any) {
         console.error('Failed to take picture:', error);
         Alert.alert('Error', 'Failed to take picture');

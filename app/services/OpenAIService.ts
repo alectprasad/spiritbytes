@@ -29,7 +29,7 @@ export class OpenAIService {
   static async generateRecipes(mood: string, count: number = 3): Promise<Recipe[]> {
     try {
       if (!this.API_KEY) {
-        return this.getFallbackRecipes(mood);
+        throw new Error("API key is not configured");
       }
 
       const systemPrompt = `You are a nutrition expert and chef who specializes in mood-boosting foods. 
@@ -76,14 +76,14 @@ export class OpenAIService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        return this.getFallbackRecipes(mood);
+        throw new Error(errorData.error?.message || "Failed to generate recipes");
       }
 
       const data = await response.json();
       
       // Check if we have a valid response structure
       if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        return this.getFallbackRecipes(mood);
+        throw new Error("Invalid response structure from OpenAI");
       }
       
       const content = data.choices[0].message.content;
@@ -110,13 +110,12 @@ export class OpenAIService {
             const jsonStr = cleanedContent.substring(jsonStart, jsonEnd);
             recipesData = JSON.parse(jsonStr);
           } else {
-            throw new Error("Couldn't extract valid JSON");
+            throw new Error("Couldn't extract valid JSON from the response");
           }
         } catch (extractError) {
-          // If all parsing attempts fail, generate a structured response manually
-          console.log("Parsing failed, creating manual response from:", content);
-          // Create a manual recipe structure from the response
-          recipesData = this.createManualRecipesFromText(content, mood);
+          // If all parsing attempts fail, throw an error
+          console.log("Parsing failed:", content);
+          throw new Error("Failed to parse recipe data from API response");
         }
       }
       
@@ -141,177 +140,138 @@ export class OpenAIService {
         ingredients: recipe.ingredients
       }));
     } catch (error) {
-      return this.getFallbackRecipes(mood);
+      console.error("Error generating recipes:", error);
+      throw error; // Propagate the error
     }
   }
 
   /**
-   * Provide fallback recipes in case the API fails
-   * @param mood The current mood of the user
-   * @returns Array of fallback recipes
+   * Generate recipes based on multiple moods (from emotion analysis)
+   * @param moods Array of detected moods in order of confidence
+   * @param count Number of recipes to generate
+   * @returns Array of recipe objects
    */
-  /**
-   * Create recipe objects from unstructured text response
-   * @param text The raw text from OpenAI response
-   * @param mood The user's mood
-   * @returns Structured recipe objects
-   */
-  private static createManualRecipesFromText(text: string, mood: string): any {
-    // Extract recipes from text response
-    const recipes = [];
-    
-    // Split by numbered items (1., 2., 3., etc.)
-    const recipeTextBlocks = text.split(/\d+\.\s+/).filter(block => block.trim().length > 0);
-    
-    recipeTextBlocks.forEach((block, index) => {
-      // Extract title (usually first line or sentence)
-      const lines = block.split('\n').filter(line => line.trim().length > 0);
-      let title = lines[0];
-      if (title.length > 50) {
-        // If first line is too long, try to split by period
-        const firstSentence = block.split('.')[0];
-        if (firstSentence.length < 50) {
-          title = firstSentence;
-        } else {
-          // Just take first 50 chars
-          title = title.substring(0, 50) + '...';
-        }
+  static async generateRecipesForMultipleMoods(moods: string[], count: number = 3): Promise<Recipe[]> {
+    try {
+      if (!this.API_KEY) {
+        throw new Error("API key is not configured");
       }
       
-      // Extract description (use the second paragraph or line)
-      let description = "";
-      if (lines.length > 1) {
-        description = lines[1];
-      } else {
-        description = `Great for improving your ${mood} mood`;
+      if (moods.length === 0) {
+        throw new Error("No moods provided for recipe generation");
       }
-      
-      // Look for ingredients
-      const ingredients = [];
-      const ingredientMatch = block.match(/ingredients?:?(.*?)(?:benefits|preparation|instructions|directions|steps|$)/is);
-      
-      if (ingredientMatch && ingredientMatch[1]) {
-        // Try to extract ingredients from the matched section
-        const ingredientText = ingredientMatch[1];
-        const ingredientItems = ingredientText.split(/[\n•-]/).filter(item => item.trim().length > 0);
-        
-        ingredientItems.slice(0, 3).forEach(item => {
-          ingredients.push({
-            name: item.trim(),
-            benefits: `Great for ${mood} mood support`
-          });
-        });
-      }
-      
-      // If we couldn't extract ingredients, add some placeholders
-      if (ingredients.length === 0) {
-        // Add generic ingredients based on mood
-        if (mood.toLowerCase() === 'calm' || mood.toLowerCase() === 'relaxed') {
-          ingredients.push(
-            { name: 'Chamomile Tea', benefits: 'Contains apigenin that promotes relaxation' },
-            { name: 'Oats', benefits: 'Rich in melatonin for calming effects' },
-            { name: 'Almonds', benefits: 'Contains magnesium which helps reduce stress' }
-          );
-        } else if (mood.toLowerCase() === 'happy' || mood.toLowerCase() === 'energetic') {
-          ingredients.push(
-            { name: 'Dark Chocolate', benefits: 'Releases endorphins for mood boosting' },
-            { name: 'Bananas', benefits: 'Contains mood-enhancing vitamin B6' },
-            { name: 'Berries', benefits: 'Antioxidants support brain health' }
-          );
-        } else {
-          ingredients.push(
-            { name: 'Whole Grains', benefits: 'Provides steady energy release' },
-            { name: 'Leafy Greens', benefits: 'Rich in folate that helps mental function' },
-            { name: 'Nuts', benefits: 'Contains healthy fats for brain health' }
-          );
-        }
-      }
-      
-      recipes.push({
-        title,
-        description,
-        ingredients
-      });
-    });
-    
-    // Return at least one recipe
-    if (recipes.length === 0) {
-      return { recipes: this.getFallbackRecipes(mood) };
-    }
-    
-    return { recipes };
-  }
 
-  private static getFallbackRecipes(mood: string): Recipe[] {
-    // Return some default recipes based on mood
-    const fallbackRecipes: {[key: string]: Recipe[]} = {
-      "Calm": [
-        {
-          id: '1',
-          title: 'Banana & Peanut Butter Toast',
-          description: 'You\'ll want something easy, comforting and soothing',
-          color: COLORS.sandBeige,
-          ingredients: [
-            {
-              name: 'Bananas',
-              benefits: 'Rich in magnesium and potassium, which help relax muscles'
-            },
-            {
-              name: 'Whole Grain Bread',
-              benefits: 'Complex carbs promote serotonin production'
-            },
-            {
-              name: 'Peanut Butter',
-              benefits: 'Contains tryptophan which helps produce melatonin'
-            }
-          ]
+      // Create a description of the user's emotional state
+      const moodDescription = moods.length === 1 
+        ? `feeling "${moods[0]}"`
+        : `primarily feeling "${moods[0]}" with elements of "${moods.slice(1).join('" and "')}"`;
+
+      const systemPrompt = `You are a nutrition expert and chef who specializes in mood-boosting foods. 
+      Generate ${count} different recipe ideas that would be helpful for someone who is ${moodDescription}.`;
+
+      const userPrompt = `For each recipe, include:
+      1. A title
+      2. A short description explaining why this food combination is good for someone with this emotional profile
+      3. Three key ingredients with specific benefits related to the user's mood blend
+      
+      The recipes should primarily address the dominant mood (${moods[0]}) while also considering the secondary emotional states.
+      
+      Return the data in JSON format with this exact structure:
+      {
+        "recipes": [
+          {
+            "title": "Recipe Title",
+            "description": "Why this is good for the user's mood blend",
+            "ingredients": [
+              {"name": "Ingredient 1", "benefits": "Specific benefit for this mood combination"},
+              {"name": "Ingredient 2", "benefits": "Specific benefit for this mood combination"},
+              {"name": "Ingredient 3", "benefits": "Specific benefit for this mood combination"}
+            ]
+          }
+        ]
+      }
+      
+      Do not include any text before or after the JSON.`;
+
+      const response = await fetch(this.API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.API_KEY}`
         },
-        {
-          id: '2',
-          title: 'Turmeric Golden Milk',
-          description: 'A warm drink to help you unwind and relax',
-          color: COLORS.terracotta,
-          ingredients: [
-            {
-              name: 'Turmeric',
-              benefits: 'Anti-inflammatory properties that help reduce stress'
-            },
-            {
-              name: 'Warm Milk',
-              benefits: 'Contains tryptophan which promotes better sleep'
-            },
-            {
-              name: 'Honey',
-              benefits: 'Natural sweetener that helps soothe the mind'
-            }
-          ]
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || "Failed to generate recipes");
+      }
+
+      const data = await response.json();
+      
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error("Invalid response structure from OpenAI");
+      }
+      
+      const content = data.choices[0].message.content;
+      
+      // Process content following the same pattern as generateRecipes
+      let cleanedContent = content;
+      if (content.startsWith("```json") || content.startsWith("```JSON")) {
+        cleanedContent = content.replace(/^```json\n|^```JSON\n/, "").replace(/```$/, "");
+      };
+      
+      let recipesData;
+      try {
+        recipesData = JSON.parse(cleanedContent);
+      } catch (e) {
+        try {
+          const jsonStart = cleanedContent.indexOf('{');
+          const jsonEnd = cleanedContent.lastIndexOf('}') + 1;
+          
+          if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            const jsonStr = cleanedContent.substring(jsonStart, jsonEnd);
+            recipesData = JSON.parse(jsonStr);
+          } else {
+            throw new Error("Couldn't extract valid JSON from the response");
+          }
+        } catch (extractError) {
+          // If all parsing attempts fail, throw an error
+          console.log("Parsing failed:", content);
+          throw new Error("Failed to parse recipe data from API response");
         }
-      ],
-      "Happy": [
-        {
-          id: '4',
-          title: 'Berry Smoothie Bowl',
-          description: 'Maintain your positive mood with these uplifting foods',
-          color: COLORS.terracotta,
-          ingredients: [
-            {
-              name: 'Berries',
-              benefits: 'Rich in antioxidants that support brain health'
-            },
-            {
-              name: 'Greek Yogurt',
-              benefits: 'Probiotics can enhance mood and cognitive function'
-            },
-            {
-              name: 'Honey',
-              benefits: 'Natural sweetener that helps maintain energy levels'
-            }
-          ]
-        }
-      ]
-    };
-    
-    // Return recipes for the given mood, or default to Calm recipes
-    return fallbackRecipes[mood] || fallbackRecipes["Calm"];
+      }
+      
+      let recipes = [];
+      if (recipesData.recipes) {
+        recipes = recipesData.recipes;
+      } else if (Array.isArray(recipesData)) {
+        recipes = recipesData;
+      } else {
+        recipes = [recipesData];
+      }
+      
+      const colors = [COLORS.sandBeige, COLORS.terracotta, COLORS.oliveGreen, COLORS.earthBrown, COLORS.sageMoss];
+      return recipes.map((recipe: any, index: number) => ({
+        id: `${Date.now()}-${index}`,
+        title: recipe.title,
+        description: recipe.description,
+        color: colors[index % colors.length],
+        ingredients: recipe.ingredients
+      }));
+    } catch (error) {
+      console.error("Error generating recipes for multiple moods:", error);
+      throw error; // Propagate the error
+    }
   }
+
+
 }

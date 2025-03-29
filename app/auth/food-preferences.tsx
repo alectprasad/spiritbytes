@@ -1,15 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, 
-  Platform, ScrollView, SafeAreaView } from "react-native";
+  Platform, ScrollView, SafeAreaView, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from "expo-status-bar";
-import { updateUserAttributes, signIn } from "aws-amplify/auth";
+import { FoodPreferencesService } from "@/app/services/FoodPreferencesService";
+import { logAllStorageKeys, logPreferenceValues } from '@/app/utils/PreferencesDebug';
 import { COLORS, SHADOWS } from "@/app/constants/theme";
 
 export default function FoodPreferencesScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams();
+  const { fromSettings } = useLocalSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [allergens, setAllergens] = useState("");
   
   // Diet preferences state
@@ -25,6 +28,59 @@ export default function FoodPreferencesScreen() {
     "Low Fat"
   ];
   
+  // Fetch user's existing preferences when component mounts AND when screen comes into focus
+  useEffect(() => {
+    fetchUserPreferences();
+  }, []);
+  
+  // This will run every time the screen comes into focus (like when navigating back from another screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("Food preferences screen focused - refreshing data");
+      
+      // Debug: log what's in storage before fetching
+      const debugStorage = async () => {
+        await logAllStorageKeys();
+        await logPreferenceValues();
+      };
+      debugStorage();
+      
+      // Now fetch and display preferences
+      fetchUserPreferences();
+      
+      return () => {
+        // cleanup if needed
+      };
+    }, [])
+  );
+
+  const fetchUserPreferences = async () => {
+    setIsFetching(true);
+    try {
+      // First try to load from local storage for immediate display
+      const localPrefs = await FoodPreferencesService.getLocalPreferences();
+      setSelectedDiets(localPrefs.diets);
+      setAllergens(localPrefs.allergens);
+      
+      console.log("Loaded preferences from local storage:", localPrefs);
+      
+      // Then fetch from Cognito to ensure data is up-to-date
+      const cognitoPrefs = await FoodPreferencesService.fetchFromCognito();
+      setSelectedDiets(cognitoPrefs.diets);
+      setAllergens(cognitoPrefs.allergens);
+      
+      console.log("Fetched preferences from Cognito:", cognitoPrefs);
+    } catch (error) {
+      console.error("Error fetching user preferences:", error);
+      Alert.alert(
+        "Error", 
+        "Failed to load your preferences. You can still update them."
+      );
+    } finally {
+      setIsFetching(false);
+    }
+  };
+  
   const toggleDiet = (diet: string) => {
     if (selectedDiets.includes(diet)) {
       setSelectedDiets(selectedDiets.filter(item => item !== diet));
@@ -33,30 +89,95 @@ export default function FoodPreferencesScreen() {
     }
   };
 
-  const handleContinue = async () => {
+  const handleSave = async () => {
     setIsLoading(true);
     try {
-      // Update user attributes with food preferences
-      await updateUserAttributes({
-        userAttributes: {
-          'custom:diet': selectedDiets.join(','),
-          'custom:allergens': allergens
-        }
-      });
+      // Create preferences object
+      const preferences = {
+        diets: selectedDiets,
+        allergens: allergens
+      };
       
-      console.log("Diet preferences saved:", selectedDiets);
-      console.log("Allergens saved:", allergens);
+      console.log("Saving preferences:", preferences);
       
-      // Navigate to home screen
-      router.replace("/app/home");
+      // Use the service to save to both local storage and Cognito
+      await FoodPreferencesService.savePreferences(preferences);
+      
+      console.log("Food preferences saved successfully");
+      
+      // Debug: verify saved data in storage
+      await logPreferenceValues();
+      
+      Alert.alert(
+        "Success",
+        "Your food preferences have been updated.",
+        [
+          { 
+            text: "OK", 
+            onPress: () => {
+              // If coming from settings, go back to settings
+              if (fromSettings === 'true') {
+                console.log("Navigating back to settings");
+                router.back();
+              } else {
+                // If coming from signup flow, go to home
+                console.log("Navigating to home");
+                router.replace("/app/home");
+              }
+            }
+          }
+        ]
+      );
     } catch (error) {
-      console.log("Error saving preferences:", error);
-      // If we encounter an error, we'll still let the user proceed
-      router.replace("/app/home");
+      console.error("Error saving preferences:", error);
+      // Check if we need to handle offline case
+      try {
+        // Try to save just to local storage if Cognito update failed
+        await FoodPreferencesService.saveLocalPreferences({
+          diets: selectedDiets,
+          allergens: allergens
+        });
+        
+        // Debug: verify local save
+        await logPreferenceValues();
+        
+        Alert.alert(
+          "Partially Saved",
+          "Your preferences were saved locally but couldn't be synced to your account. They will sync when you're back online.",
+          [
+            { 
+              text: "OK", 
+              onPress: () => {
+                if (fromSettings === 'true') {
+                  router.back();
+                } else {
+                  router.replace("/app/home");
+                }
+              }
+            }
+          ]
+        );
+      } catch (localError) {
+        // Complete failure - couldn't save anywhere
+        console.error("Local save failed:", localError);
+        Alert.alert("Error", "Failed to save your preferences. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Determine button text based on context
+  const continueButtonText = fromSettings === 'true' ? 'Save Changes' : 'Continue';
+
+  if (isFetching) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <ActivityIndicator size="large" color={COLORS.forestGreen} />
+        <Text style={{ marginTop: 20, fontSize: 16, color: COLORS.darkGray }}>Loading your preferences...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "white" }}>
@@ -69,7 +190,7 @@ export default function FoodPreferencesScreen() {
           <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20 }}>
             <View className="flex-1">
               <Text className="text-3xl font-serif mb-8 mt-8">
-                Tell Me About Your Food Preferences
+                Your Food Preferences
               </Text>
               
               {/* Diet Preferences */}
@@ -118,13 +239,12 @@ export default function FoodPreferencesScreen() {
                   style={SHADOWS.button}
                 >
                   <View className="flex-row items-center">
-                    <Text className="text-white text-lg mr-2">Go Back</Text>
-                    <Text className="text-white text-2xl">←</Text>
+                    <Text className="text-white text-lg mr-2">Cancel</Text>
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={handleContinue}
+                  onPress={handleSave}
                   disabled={isLoading}
                   className={`w-[52%] h-14 rounded-full items-center justify-center ${isLoading ? "bg-opacity-70" : ""}`}
                   style={{ 
@@ -136,8 +256,7 @@ export default function FoodPreferencesScreen() {
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <View className="flex-row items-center">
-                      <Text className="text-white text-lg mr-2">Continue</Text>
-                      <Text className="text-white text-2xl">→</Text>
+                      <Text className="text-white text-lg mr-2">{continueButtonText}</Text>
                     </View>
                   )}
                 </TouchableOpacity>

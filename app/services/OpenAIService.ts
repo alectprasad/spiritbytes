@@ -1,6 +1,7 @@
 // app/services/OpenAIService.ts
 
 import { COLORS } from "@/app/constants/theme";
+import { FoodPreferencesService, UserFoodPreferences } from "./FoodPreferencesService";
 
 // Define interfaces for the recipe data
 export interface Ingredient {
@@ -21,6 +22,24 @@ export class OpenAIService {
   private static API_URL = 'https://api.openai.com/v1/chat/completions';
 
   /**
+   * Get user's food preferences to incorporate into recipe generation
+   */
+  private static async getUserPreferences(): Promise<UserFoodPreferences> {
+    try {
+      return await FoodPreferencesService.getLocalPreferences();
+    } catch (error) {
+      console.error("Error getting user preferences:", error);
+      // Return empty preferences if there's an error
+      return {
+        diets: [],
+        allergens: '',
+        hasDietRestrictions: false,
+        hasAllergens: false
+      };
+    }
+  }
+
+  /**
    * Generate recipes based on a user's mood
    * @param mood The current mood of the user
    * @param count Number of recipes to generate (default 3)
@@ -32,8 +51,24 @@ export class OpenAIService {
         throw new Error("API key is not configured");
       }
 
+      // Get user preferences
+      const userPrefs = await this.getUserPreferences();
+
+      // Create dietary restrictions text
+      let dietaryText = "";
+      if (userPrefs.hasDietRestrictions) {
+        dietaryText += `The user follows these dietary preferences: ${userPrefs.diets.join(', ')}. `;
+      }
+      
+      // Create allergens text
+      let allergensText = "";
+      if (userPrefs.hasAllergens) {
+        allergensText += `The user has these food allergies or sensitivities: ${userPrefs.allergens}. `;
+      }
+
       const systemPrompt = `You are a nutrition expert and chef who specializes in mood-boosting foods. 
-      Generate ${count} different recipe ideas that would be helpful for someone who is feeling "${mood}".`;
+      Generate ${count} different recipe ideas that would be helpful for someone who is feeling "${mood}".
+      ${dietaryText}${allergensText}Make sure all recipes are compatible with these requirements.`;
 
       const userPrompt = `For each recipe, include:
       1. A title
@@ -161,13 +196,29 @@ export class OpenAIService {
         throw new Error("No moods provided for recipe generation");
       }
 
+      // Get user preferences
+      const userPrefs = await this.getUserPreferences();
+
+      // Create dietary restrictions text
+      let dietaryText = "";
+      if (userPrefs.hasDietRestrictions) {
+        dietaryText += `The user follows these dietary preferences: ${userPrefs.diets.join(', ')}. `;
+      }
+      
+      // Create allergens text
+      let allergensText = "";
+      if (userPrefs.hasAllergens) {
+        allergensText += `The user has these food allergies or sensitivities: ${userPrefs.allergens}. `;
+      }
+
       // Create a description of the user's emotional state
       const moodDescription = moods.length === 1 
         ? `feeling "${moods[0]}"`
         : `primarily feeling "${moods[0]}" with elements of "${moods.slice(1).join('" and "')}"`;
 
       const systemPrompt = `You are a nutrition expert and chef who specializes in mood-boosting foods. 
-      Generate ${count} different recipe ideas that would be helpful for someone who is ${moodDescription}.`;
+      Generate ${count} different recipe ideas that would be helpful for someone who is ${moodDescription}.
+      ${dietaryText}${allergensText}Make sure all recipes are compatible with these requirements.`;
 
       const userPrompt = `For each recipe, include:
       1. A title
@@ -272,6 +323,4 @@ export class OpenAIService {
       throw error; // Propagate the error
     }
   }
-
-
 }

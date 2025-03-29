@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, SafeAreaView, StyleSheet, TouchableOpacity, Switch, ScrollView, Alert } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from '@react-navigation/native';
 import { signOut } from "aws-amplify/auth";
 import Navbar from "@/app/components/Navbar";
+import { logPreferenceValues } from '@/app/utils/PreferencesDebug';
 import { COLORS, SHADOWS } from "@/app/constants/theme";
 
 export default function SettingsScreen() {
@@ -29,8 +31,36 @@ export default function SettingsScreen() {
     }
   };
 
-  const SettingItem = ({ icon, title, description, isToggle = false, value = false, onToggle = () => {} }) => (
-    <View style={styles.settingItem}>
+  // Add focus effect to log when settings screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("Settings screen focused");
+      // Debug: Check if the preferences exist in storage
+      const checkPreferences = async () => {
+        await logPreferenceValues();
+      };
+      checkPreferences();
+      
+      return () => {
+        // cleanup if needed
+      };
+    }, [])
+  );
+  
+  const navigateToFoodPreferences = () => {
+    console.log("Navigating to food preferences from settings");
+    router.push({
+      pathname: "/auth/food-preferences",
+      params: { fromSettings: 'true' }
+    });
+  };
+
+  const SettingItem = ({ icon, title, description, isToggle = false, value = false, onToggle = () => {}, onPress }) => (
+    <TouchableOpacity 
+      style={styles.settingItem}
+      onPress={onPress}
+      disabled={isToggle}
+    >
       <View style={styles.settingIconContainer}>
         <Ionicons name={icon} size={24} color={COLORS.forestGreen} />
       </View>
@@ -48,7 +78,7 @@ export default function SettingsScreen() {
       ) : (
         <Ionicons name="chevron-forward" size={20} color={COLORS.mediumGray} />
       )}
-    </View>
+    </TouchableOpacity>
   );
 
   const SectionHeader = ({ title }) => (
@@ -66,21 +96,19 @@ export default function SettingsScreen() {
         <ScrollView style={styles.scrollView}>
           <SectionHeader title="Account" />
           
-          <TouchableOpacity onPress={() => router.push("/auth/food-preferences")}>
-            <SettingItem 
-              icon="nutrition-outline" 
-              title="Food Preferences"
-              description="Update your diet and allergen preferences"
-            />
-          </TouchableOpacity>
+          <SettingItem 
+            icon="nutrition-outline" 
+            title="Food Preferences"
+            description="Update your diet and allergen preferences"
+            onPress={navigateToFoodPreferences}
+          />
           
-          <TouchableOpacity>
-            <SettingItem 
-              icon="person-outline" 
-              title="Personal Information"
-              description="Update your profile information"
-            />
-          </TouchableOpacity>
+          <SettingItem 
+            icon="person-outline" 
+            title="Personal Information"
+            description="Update your profile information"
+            onPress={() => {}}
+          />
 
           <SectionHeader title="App Settings" />
           
@@ -91,6 +119,7 @@ export default function SettingsScreen() {
             isToggle={true}
             value={notificationsEnabled}
             onToggle={() => setNotificationsEnabled(!notificationsEnabled)}
+            onPress={() => {}}
           />
           
           <SettingItem 
@@ -100,6 +129,7 @@ export default function SettingsScreen() {
             isToggle={true}
             value={darkModeEnabled}
             onToggle={() => setDarkModeEnabled(!darkModeEnabled)}
+            onPress={() => {}}
           />
           
           <SettingItem 
@@ -109,33 +139,31 @@ export default function SettingsScreen() {
             isToggle={true}
             value={soundEnabled}
             onToggle={() => setSoundEnabled(!soundEnabled)}
+            onPress={() => {}}
           />
 
           <SectionHeader title="Support" />
           
-          <TouchableOpacity>
-            <SettingItem 
-              icon="help-circle-outline" 
-              title="Help Center"
-              description="Get help with the app"
-            />
-          </TouchableOpacity>
+          <SettingItem 
+            icon="help-circle-outline" 
+            title="Help Center"
+            description="Get help with the app"
+            onPress={() => {}}
+          />
           
-          <TouchableOpacity>
-            <SettingItem 
-              icon="newspaper-outline" 
-              title="Terms & Privacy Policy"
-              description="Read our terms and conditions"
-            />
-          </TouchableOpacity>
+          <SettingItem 
+            icon="newspaper-outline" 
+            title="Terms & Privacy Policy"
+            description="Read our terms and conditions"
+            onPress={() => {}}
+          />
           
-          <TouchableOpacity>
-            <SettingItem 
-              icon="information-circle-outline" 
-              title="About"
-              description="App version 1.0.0"
-            />
-          </TouchableOpacity>
+          <SettingItem 
+            icon="information-circle-outline" 
+            title="About"
+            description="App version 1.0.0"
+            onPress={() => {}}
+          />
 
           <View style={styles.signOutContainer}>
             <TouchableOpacity 
